@@ -1,0 +1,108 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Plus, Settings, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/components/providers/ThemeProvider";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import CreateBookmarkDialogGlobal from "@/components/bookmark/CreateBookmarkDialogGlobal";
+import {  useSearchParams, useRouter, usePathname } from "next/navigation";
+
+
+interface Collection {
+  id: string;
+  name: string;
+  slug: string;
+  isPublic: boolean;
+  description?: string;
+}
+
+interface HeaderProps {
+  selectedCollectionId?: string;
+  currentFolderId?: string | null;
+  onBookmarkAdded?: () => void;
+  onCollectionChange?: (id: string) => void;
+}
+
+export function Header({ 
+  selectedCollectionId, 
+  currentFolderId, 
+  onBookmarkAdded,
+  onCollectionChange 
+}: HeaderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+
+  const handleSuccess = async (newBookmarkFolderId?: string) => {
+    setDialogOpen(false);
+    
+    if (
+      (newBookmarkFolderId && newBookmarkFolderId === currentFolderId) || 
+      (!newBookmarkFolderId && !currentFolderId)
+    ) {
+      if (onBookmarkAdded) {
+        await onBookmarkAdded();
+      }
+    }
+    
+    const targetFolderId = newBookmarkFolderId || currentFolderId;
+    
+    if (targetFolderId && targetFolderId !== currentFolderId) {
+      const currentSearchParams = new URLSearchParams(searchParams.toString());
+      currentSearchParams.set('folderId', targetFolderId);
+      router.push(`${pathname}?${currentSearchParams.toString()}`);
+    }
+  };
+
+  return (
+    <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-4">
+      <div className="flex items-center gap-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="h-4" />
+      </div>
+      
+      <div className="flex items-center gap-2">
+        {session && (
+          <>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              新建书签
+            </Button>
+          </>
+        )}
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin/collections" aria-label="Admin">
+            <Settings className="h-4 w-4" />
+          </Link>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? "切换到亮色模式" : "切换到暗色模式"}
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      <CreateBookmarkDialogGlobal
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        defaultCollectionId={selectedCollectionId || ""}
+        defaultFolderId={currentFolderId || undefined}
+        onSuccess={handleSuccess}
+      />
+    </header>
+  );
+}
