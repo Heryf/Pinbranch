@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, startTransition } from "react";
 import { BookmarkCard } from "./BookmarkCard";
 import { FolderCard } from "./FolderCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,10 +76,17 @@ export function BookmarkGrid({
     router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
   }
 
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // 获取当前层级的书签和子文件夹
-  const fetchBookmarkData = async (folderId: string | null) => {
-    try {
+  const fetchBookmarkData = useCallback(async (folderId: string | null) => {
+    // 延迟设置 loading，避免快速切换时的闪烁
+    // 如果请求在 150ms 内完成，则不会显示 loading 状态
+    loadingTimerRef.current = setTimeout(() => {
       setLoading(true);
+    }, 150);
+
+    try {
       const response = await fetch(
         `/api/collections/${collectionId}/bookmarks?` +
         (folderId ? `folderId=${folderId}` : '')
@@ -108,27 +115,44 @@ export function BookmarkGrid({
       setCurrentBookmarks([]);
       setSubfolders([]);
     } finally {
+      // 清除延迟 loading 定时器
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
       setLoading(false);
     }
-  };
+  }, [collectionId]);
 
   useEffect(() => {
     if (collectionId) {
       fetchBookmarkData(currentFolderId);
     }
-  }, [collectionId, currentFolderId, refreshTrigger]);
+  }, [collectionId, currentFolderId, refreshTrigger, fetchBookmarkData]);
 
   // 处理文件夹导航
-  const handleFolderNavigation = async (folderId: string | null) => {
+  const handleFolderNavigation = useCallback(async (folderId: string | null) => {
     if (!collectionSlug) return;
     if (folderId === null) {
       setBreadcrumbs([]);
-      routeToFolderInCollection(collectionSlug);
+      startTransition(() => {
+        routeToFolderInCollection(collectionSlug);
+      });
     } else {
-      routeToFolderInCollection(collectionSlug, folderId);
+      startTransition(() => {
+        routeToFolderInCollection(collectionSlug, folderId);
+      });
     }
-    await fetchBookmarkData(folderId);
-  };
+  }, [collectionSlug]);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+      }
+    };
+  }, []);
 
   // 搜索处理函数
   const performBookmarkSearch = async (query: string, scope: 'all' | 'current', page: number = 1) => {
