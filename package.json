@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma migrate deploy && next build",
+    "build:vercel": "sh scripts/vercel-build.sh",
     "start": "next start",
     "lint": "next lint",
     "db:push": "dotenv -e .env.local -- prisma db push",

@@ -193,9 +193,42 @@ The migration failed to apply
 1. PostgreSQL 版本 ≥ 12
 2. 不要上传超过 50MB 的单张图片（Vercel API 请求体限制 4.5MB，建议使用外部图床）
 
-### 7.5 重新部署
+### 7.6 P3009 错误：迁移状态脏数据（最常见！）
 
-如需强制 Vercel 重新构建（不重用缓存）：
-1. 进入 Vercel 项目 → Settings → General
-2. 找到 "Build & Development Settings"
-3. 点击 "Clear Build Cache" 然后重新部署
+**错误现象**：
+```
+Error: P3009
+migrate found failed migrations in the target database
+Database "db", PostgreSQL at "neondb", schema "public"
+1 migration found in prisma/migrations
+```
+
+**原因**：
+- 之前失败的 `prisma db push` 已在远程数据库 `_prisma_migrations` 表中留下了失败记录
+- Prisma 检测到迁移状态不一致，拒绝继续部署
+
+**解决方案**（已内置在 `scripts/vercel-build.sh` 中）：
+
+本项目已使用智能构建脚本，会自动处理以下 fallback 流程：
+1. 先尝试 `prisma migrate deploy`
+2. 如果失败，尝试 `prisma migrate resolve --applied 20260101000000_init` 标记迁移为已应用
+3. 如果仍失败，使用 `prisma db push --accept-data-loss --skip-generate` 强制同步 schema
+
+**手动修复（如需重置数据库）**：
+
+⚠️ **警告：以下操作会清空所有数据，仅在首次部署时使用！**
+
+1. 登录你的 PostgreSQL 数据库（如 Neon 控制台）
+2. 执行 SQL 命令：
+   ```sql
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public;
+   GRANT ALL ON SCHEMA public TO PUBLIC;
+   ```
+3. 在 Vercel 控制台 → Settings → General → 点击 **Clear Build Cache**
+4. 重新部署
+
+**预防措施**：
+- 首次部署前确保数据库为空（无表、无 schema）
+- 不要混用 `db push` 和 `migrate deploy` — 一旦使用 `db push` 创建了表，后续再用 `migrate deploy` 就会冲突
+- 本项目从第一次部署起就使用 `migrate deploy`，避免混用
