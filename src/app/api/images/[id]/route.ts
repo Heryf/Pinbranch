@@ -16,7 +16,7 @@ export async function GET(
       return new NextResponse(null, { status: 404 })
     }
 
-    return new NextResponse(image.data, {
+    return new NextResponse(new Uint8Array(image.data), {
       headers: {
         'Content-Type': image.mimeType,
         'Content-Length': image.size.toString()
