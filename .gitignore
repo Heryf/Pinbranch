@@ -41,9 +41,9 @@ next-env.d.ts
 *.swo
 
 # Prisma
-/prisma/migrations/
 /prisma/*.db
 /prisma/*.db-journal
+# 保留 prisma/migrations/ 以便生产环境使用 prisma migrate deploy
 
 # 操作系统文件
 Thumbs.db

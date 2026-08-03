@@ -117,11 +117,11 @@ model SettingImage {
 model Image {
   id          String      @id @default(cuid())     // 图片唯一标识符
   name        String                               // 图片原始文件名
-  data        Bytes                                // 图片二进制数据
-  mimeType    String                               // 图片MIME类型（如 image/jpeg, image/png）
-  type        String                               // 图片类型（如广告、头像、背景等）
+  data        Bytes       @db.ByteA                // 图片二进制数据（PostgreSQL bytea）
+  mimeType    String      @default("image/jpeg")   // 图片MIME类型（如 image/jpeg, image/png）
+  type        String      @default("default")      // 图片类型（如广告、头像、背景等）
   description String?                              // 图片描述
-  size        Int                                  // 图片文件大小（字节）
+  size        Int         @default(0)              // 图片文件大小（字节）
   width       Int?                                 // 图片宽度
   height      Int?                                 // 图片高度
   isPublic    Boolean     @default(true)           // 是否公开

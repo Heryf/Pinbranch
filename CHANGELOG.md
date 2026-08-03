@@ -4,6 +4,29 @@
 
 ---
 
+## 零、部署修复（Vercel 部署失败问题修复）
+
+### 问题描述
+
+首次部署到 Vercel 时遇到以下错误：
+
+1. **P3017 错误**：`prisma db push` 推送数据库时失败，外键约束冲突
+2. **构建缓存冲突**：Vercel 构建缓存包含本地 Windows 路径 `D:\workbuddy_cache_temp`，导致 Linux 环境构建失败
+
+### 修复方案
+
+| 修改文件 | 修改内容 | 作用 |
+|---------|---------|------|
+| `vercel.json` | 改用 `prisma migrate deploy` 替代 `prisma db push`；添加 `--legacy-peer-deps` | 避免外键约束冲突，正确应用迁移 |
+| `package.json` | build 脚本同步改为 `prisma migrate deploy` | 与 Vercel 配置保持一致 |
+| `prisma/schema.prisma` | `Image.data` 字段添加 `@db.ByteA`；`mimeType`、`type`、`size` 添加默认值 | 明确 PostgreSQL 类型，兼容迁移 |
+| `prisma/migrations/20260101000000_init/migration.sql` | **新增**：显式声明表创建顺序（Image 先于 SettingImage） | 避免外键约束冲突 |
+| `prisma/migrations/migration_lock.toml` | **新增**：指定 PostgreSQL 提供商 | 锁定迁移数据库类型 |
+| `.gitignore` | 移除 `/prisma/migrations/` 忽略规则 | 允许迁移文件被 Git 跟踪 |
+| `DEPLOYMENT.md` | 添加「七、常见部署问题与解决方案」章节 | 故障排查指南 |
+
+---
+
 ## 一、修改文件清单及摘要
 
 ### 1.1 API 层修改

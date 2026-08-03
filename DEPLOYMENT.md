@@ -133,8 +133,69 @@ npm run dev
 
 ## 六、注意事项
 
-1. **数据库迁移**：首次部署时 `prisma db push` 会自动创建所有表结构
+1. **数据库迁移**：首次部署时 `prisma migrate deploy` 会自动应用迁移文件创建所有表结构
 2. **管理员账号**：首次运行时自动创建，邮箱和密码来自环境变量
 3. **图片存储**：图片以二进制形式存储在数据库中（Image 模型），无需额外配置文件存储
 4. **构建超时**：如遇到 Vercel 构建超时，可尝试在 `vercel.json` 中调整 `maxDuration`
 5. **域名配置**：部署后更新 `NEXTAUTH_URL` 和 `NEXT_PUBLIC_APP_URL` 为实际域名
+
+---
+
+## 七、常见部署问题与解决方案
+
+### 7.1 P3017 错误：Prisma 迁移失败
+
+**错误现象**：
+```
+Error: P3017
+The migration failed to apply
+```
+
+**原因**：
+- `prisma db push` 试图修改已有数据的表结构，PostgreSQL 因外键约束拒绝
+- 之前的部署残留了部分表结构
+
+**解决方案**：
+本项目已使用 **`prisma migrate deploy`** 替代 `prisma db push`，迁移文件 `prisma/migrations/20260101000000_init/migration.sql` 显式声明了表创建顺序（Image 表先于 SettingImage 表创建），可避免外键约束冲突。
+
+如仍遇到 P3017，可登录数据库执行 `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` 清空数据库后重新部署（**注意：会清空所有数据**）。
+
+### 7.2 构建缓存冲突（本地 Windows 路径）
+
+**错误现象**：
+```
+"外部数据" "D:\workbuddy_cache_temp"
+```
+
+**原因**：通过本地 Vercel CLI 部署时，本地 Windows 缓存目录被上传到 Vercel Linux 环境，导致路径冲突。
+
+**解决方案**：
+1. **推荐：通过 GitHub 部署**，Vercel 缓存由服务器统一管理
+2. 如使用 CLI 部署，先清理本地缓存：
+   ```bash
+   # Windows PowerShell
+   Remove-Item -Recurse -Force .vercel
+   # 然后强制部署
+   vercel --force
+   ```
+
+### 7.3 PostgreSQL 数据库连接失败
+
+**检查清单**：
+1. Vercel 环境变量 `DATABASE_URL` 是否正确配置（不要使用 `localhost`，需使用远程 PostgreSQL）
+2. 数据库服务是否允许来自 Vercel 的连接（多数 PaaS 数据库需开启 "允许所有 IP 连接"）
+3. 连接字符串格式：`postgresql://user:password@host:5432/dbname?sslmode=require`（SSL 必需）
+4. 推荐使用 **Neon**（https://neon.tech），免费且与 Vercel 集成良好
+
+### 7.4 Image.data 字段类型问题
+
+**说明**：`Image.data` 字段已使用 `@db.ByteA` 显式指定 PostgreSQL bytea 类型，确保与 PostgreSQL 兼容。如遇到二进制数据相关错误，请检查：
+1. PostgreSQL 版本 ≥ 12
+2. 不要上传超过 50MB 的单张图片（Vercel API 请求体限制 4.5MB，建议使用外部图床）
+
+### 7.5 重新部署
+
+如需强制 Vercel 重新构建（不重用缓存）：
+1. 进入 Vercel 项目 → Settings → General
+2. 找到 "Build & Development Settings"
+3. 点击 "Clear Build Cache" 然后重新部署
