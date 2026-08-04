@@ -1,7 +1,9 @@
 {
-  "name": "pintree",
-  "version": "0.1.0",
+  "name": "pinbranch",
+  "version": "1.0.0",
   "private": true,
+  "description": "Pinbranch - A refined bookmark navigation site with file-explorer style browsing, based on Pintree",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "next dev",

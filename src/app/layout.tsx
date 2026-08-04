@@ -170,8 +170,8 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
-      <body suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning className="dark">
+      <body suppressHydrationWarning className="dark">
         <ThemeProvider>
           <SessionProvider>{children}</SessionProvider>
           <Toaster />

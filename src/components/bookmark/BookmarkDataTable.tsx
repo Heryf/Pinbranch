@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Star, ExternalLink, Folder, ChevronLeft, ArrowUpDown } from "lucide-react";
+import { MoreHorizontal, Star, Folder, ArrowUpDown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -44,8 +44,8 @@ interface Bookmark {
   folder?: {
     name: string;
   };
-  createdAt: string; // 添加建时间
-  updatedAt: string; // 添加更新时间
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Folder {
@@ -63,7 +63,7 @@ interface BookmarkDataTableProps {
   folders: Folder[];
   bookmarks: {
     currentBookmarks: Bookmark[];
-    subfolders: any[]; // 如果需要使用 subfolders，可以定义更具体的类型
+    subfolders: any[];
   };
   currentFolderId?: string;
   onFolderClick: (folderId: string) => void;
@@ -108,11 +108,6 @@ export function BookmarkDataTable({
   const safeBookmarks = Array.isArray(currentBookmarks) ? currentBookmarks : [];
   const safeFolders = Array.isArray(folders) ? folders : [];
 
-  console.log('Raw bookmarks:', bookmarks);
-  console.log('Safe bookmarks:', safeBookmarks);
-  console.log('Raw folders:', folders);
-  console.log('Safe folders:', safeFolders);
-
   const tableData = [
     ...safeFolders.map(folder => ({
       id: folder.id,
@@ -140,8 +135,6 @@ export function BookmarkDataTable({
       collectionId: bookmark.collectionId
     }))
   ];
-
-  console.log('Processed tableData:', tableData);
 
   if (loading) {
     return (
@@ -174,104 +167,142 @@ export function BookmarkDataTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Icon</TableHead>
-              <TableHead>Icon URL</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>View Count</TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  className="w-full text-left font-medium"
-                  onClick={() => {
-                    const newOrder = sortField === "createdAt" && sortOrder === "asc" ? "desc" : "asc";
-                    onSortChange("createdAt", newOrder);
-                  }}
-                >
-                  Created At
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  className="w-full text-left font-medium"
-                  onClick={() => {
-                    const newOrder = sortField === "updatedAt" && sortOrder === "asc" ? "desc" : "asc";
-                    onSortChange("updatedAt", newOrder);
-                  }}
-                >
-                  Updated At
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tableData.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="w-[50px] text-center">类型</TableHead>
+                <TableHead className="w-[200px]">标题</TableHead>
+                <TableHead className="w-[80px] text-center">图标</TableHead>
+                <TableHead className="w-[300px] max-w-[300px]">描述</TableHead>
+                <TableHead className="w-[80px] text-center">精选</TableHead>
+                <TableHead className="w-[100px] text-center">访问量</TableHead>
+                <TableHead className="w-[120px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-left font-medium"
+                    onClick={() => {
+                      const newOrder = sortField === "createdAt" && sortOrder === "asc" ? "desc" : "asc";
+                      onSortChange("createdAt", newOrder);
+                    }}
+                  >
+                    创建时间
+                    <ArrowUpDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[120px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-left font-medium"
+                    onClick={() => {
+                      const newOrder = sortField === "updatedAt" && sortOrder === "asc" ? "desc" : "asc";
+                      onSortChange("updatedAt", newOrder);
+                    }}
+                  >
+                    更新时间
+                    <ArrowUpDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[80px] text-center">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tableData.map((item) => (
+                <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
+                  {/* 类型 */}
+                  <TableCell className="text-center">
                     {item.type === "folder" ? (
-                      <Button
-                        variant="ghost"
-                        className="p-0 hover:bg-transparent"
-                        onClick={() => onFolderClick(item.id)}
-                      >
-                        <Folder className="w-4 h-4 mr-2" />
-                        {item.title}
-                      </Button>
+                      <Folder className="w-4 h-4 mx-auto text-primary" />
                     ) : (
-                      <>
-                        {item.isFeatured && <Star className="w-4 h-4 text-yellow-400" />}
-                        <span>{item.title}</span>
-                      </>
+                      <ExternalLink className="w-4 h-4 mx-auto text-muted-foreground" />
                     )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {item.type === "bookmark" && item.icon && (
-                    <div className="flex items-center justify-center">
-                      <img 
-                        src={item.icon} 
-                        alt="icon" 
-                        className="w-8 h-8 rounded-full object-cover border border-border"
+                  </TableCell>
+
+                  {/* 标题 */}
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {item.type === "folder" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 h-auto hover:bg-transparent font-medium text-foreground"
+                          onClick={() => onFolderClick(item.id)}
+                        >
+                          {item.title}
+                        </Button>
+                      ) : (
+                        <span className="font-medium text-foreground truncate max-w-[180px] block">
+                          {item.title}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  {/* 图标 */}
+                  <TableCell className="text-center">
+                    {item.type === "bookmark" && item.icon ? (
+                      <img
+                        src={item.icon}
+                        alt="icon"
+                        className="w-6 h-6 rounded object-cover border border-border mx-auto"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none'
                         }}
                       />
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm text-muted-foreground">
-                    {item.type === "bookmark" ? item.icon || '-' : '-'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {item.type === "bookmark" ? item.description || '-' : '-'}
-                </TableCell>
-                <TableCell>
-                  {item.type === "bookmark" ? item.viewCount || 0 : '-'}
-                </TableCell>
-                <TableCell>
-                  {new Date(item.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  {new Date(item.updatedAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <TableActions item={item} onUpdate={onBookmarksChange} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                  </TableCell>
+
+                  {/* 描述 - 限制宽度 */}
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground truncate max-w-[280px] block" title={item.type === "bookmark" ? item.description || '' : ''}>
+                      {item.type === "bookmark" ? (item.description || '-') : '-'}
+                    </span>
+                  </TableCell>
+
+                  {/* 精选 */}
+                  <TableCell className="text-center">
+                    {item.type === "bookmark" && item.isFeatured ? (
+                      <Star className="w-4 h-4 text-yellow-400 mx-auto fill-yellow-400" />
+                    ) : (
+                      <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                  </TableCell>
+
+                  {/* 访问量 */}
+                  <TableCell className="text-center">
+                    <span className="text-sm text-muted-foreground">
+                      {item.type === "bookmark" ? item.viewCount || 0 : '-'}
+                    </span>
+                  </TableCell>
+
+                  {/* 创建时间 */}
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      {new Date(item.createdAt).toLocaleDateString('zh-CN')}
+                    </span>
+                  </TableCell>
+
+                  {/* 更新时间 */}
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      {new Date(item.updatedAt).toLocaleDateString('zh-CN')}
+                    </span>
+                  </TableCell>
+
+                  {/* 操作 */}
+                  <TableCell className="text-center">
+                    <TableActions item={item} onUpdate={onBookmarksChange} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
@@ -288,8 +319,8 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
         method: "DELETE",
       });
 
-      let errorMessage = `Delete ${item.type === "folder" ? "folder" : "bookmark"} failed`;
-      
+      let errorMessage = `删除${item.type === "folder" ? "文件夹" : "书签"}失败`;
+
       if (!response.ok) {
         try {
           const data = await response.json();
@@ -303,8 +334,8 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
       onUpdate();
       setIsDeleteDialogOpen(false);
     } catch (error) {
-      console.error("Delete failed:", error);
-      alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("删除失败:", error);
+      alert(`删除失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 
@@ -312,19 +343,19 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-            Edit
+            编辑
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={() => setIsDeleteDialogOpen(true)}
             className="text-red-600"
           >
-            Delete
+            删除
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -351,9 +382,9 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {item.type === "folder" ? "folder" : "bookmark"}</DialogTitle>
+            <DialogTitle>删除{item.type === "folder" ? "文件夹" : "书签"}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{item.title}" this {item.type === "folder" ? "folder" : "bookmark"}? This action cannot be undone.
+              确定要删除 "{item.title}" 吗？此操作无法撤销。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -361,13 +392,13 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
             >
-              Cancel
+              取消
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
             >
-              Delete
+              删除
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Sidebar,
   SidebarHeader,
@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,6 +24,7 @@ interface Collection {
   name: string;
   isPublic: boolean;
   slug: string;
+  sortOrder: number;
 }
 
 interface FolderNode {
@@ -56,6 +57,8 @@ export function WebsiteSidebar({
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const { images, isLoading } = useSettingImages("logoUrl");
   const { settings } = useSettings("basic");
@@ -75,11 +78,18 @@ export function WebsiteSidebar({
           return;
         }
 
-        setCollections(data);
+        // 按 sortOrder 排序
+        const sorted = data.sort((a: Collection, b: Collection) => a.sortOrder - b.sortOrder);
+        setCollections(sorted);
+
+        // 默认展开第一个合集
+        if (sorted.length > 0) {
+          setExpandedCollections(new Set([sorted[0].id]));
+        }
 
         // 如果有公开的书签集合且没有选中的集合，选择第一个
-        if (data.length > 0 && !selectedCollectionId) {
-          const firstCollection = data[0];
+        if (sorted.length > 0 && !selectedCollectionId) {
+          const firstCollection = sorted[0];
           if (onCollectionChange) {
             onCollectionChange(firstCollection.id, firstCollection.slug);
           }
@@ -246,6 +256,81 @@ export function WebsiteSidebar({
     router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
   };
 
+  // 拖拽排序
+  const handleDragStart = (e: React.DragEvent, collectionId: string) => {
+    setDraggingId(collectionId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, collectionId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggingId && draggingId !== collectionId) {
+      setDragOverId(collectionId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+
+    if (!draggingId || draggingId === targetId) {
+      setDraggingId(null);
+      return;
+    }
+
+    const dragIndex = collections.findIndex((c) => c.id === draggingId);
+    const dropIndex = collections.findIndex((c) => c.id === targetId);
+
+    if (dragIndex === -1 || dropIndex === -1) {
+      setDraggingId(null);
+      return;
+    }
+
+    // 重新排序
+    const newCollections = [...collections];
+    const [removed] = newCollections.splice(dragIndex, 1);
+    newCollections.splice(dropIndex, 0, removed);
+
+    // 更新 sortOrder
+    const updatedCollections = newCollections.map((c, index) => ({
+      ...c,
+      sortOrder: index,
+    }));
+
+    setCollections(updatedCollections);
+    setDraggingId(null);
+
+    // 保存到服务器
+    try {
+      const response = await fetch("/api/collections/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collections: updatedCollections.map((c) => ({
+            id: c.id,
+            sortOrder: c.sortOrder,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to save sort order");
+      }
+    } catch (error) {
+      console.error("Save sort order error:", error);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
   // 渲染文件夹树
   const renderFolderTree = (folders: FolderNode[], collectionId: string) => {
     return folders.map((folder) => (
@@ -385,9 +470,12 @@ export function WebsiteSidebar({
       <SidebarContent className="flex-1 min-h-0 overflow-y-auto hide-scrollbar px-2 py-3">
         <SidebarGroup className="space-y-1">
           {/* 合集列表标题 */}
-          <div className="px-2.5 pb-2">
+          <div className="px-2.5 pb-2 flex items-center justify-between">
             <span className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-wider">
               书签合集
+            </span>
+            <span className="text-[10px] text-muted-foreground/40">
+              拖拽排序
             </span>
           </div>
 
@@ -399,9 +487,24 @@ export function WebsiteSidebar({
                 const folderTree = collectionFolderTrees.get(collection.id) || [];
                 const isExpanded = expandedCollections.has(collection.id);
                 const isSelected = selectedCollectionId === collection.id && !currentFolderId;
+                const isDragging = draggingId === collection.id;
+                const isDragOver = dragOverId === collection.id;
 
                 return (
-                  <div key={collection.id} className="space-y-0.5">
+                  <div
+                    key={collection.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, collection.id)}
+                    onDragOver={(e) => handleDragOver(e, collection.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, collection.id)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      "space-y-0.5 rounded-lg transition-all duration-200",
+                      isDragging && "opacity-50",
+                      isDragOver && "bg-sidebar-accent/50 ring-1 ring-primary/30"
+                    )}
+                  >
                     {/* 合集项 */}
                     <SidebarMenuItem>
                       <SidebarMenuButton
@@ -415,6 +518,13 @@ export function WebsiteSidebar({
                         )}
                       >
                         <div className="flex items-center gap-1.5 flex-1 min-w-0 py-1">
+                          {/* 拖拽手柄 */}
+                          <div
+                            className="shrink-0 p-0.5 rounded cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
+                            title="拖拽排序"
+                          >
+                            <GripVertical className="h-3 w-3" />
+                          </div>
                           <div
                             onClick={(e) => toggleCollection(collection.id, e)}
                             className="shrink-0 p-0.5 rounded hover:bg-sidebar-accent cursor-pointer transition-colors"

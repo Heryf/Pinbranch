@@ -63,12 +63,21 @@ export function Header({
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-4">
-      <div className="flex items-center gap-4">
+      {/* 左侧：SidebarTrigger */}
+      <div className="flex items-center gap-4 flex-1">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-4" />
       </div>
       
-      <div className="flex items-center gap-2">
+      {/* 中间：标题区域 - 居中 */}
+      <div className="flex items-center justify-center flex-1">
+        <span className="text-lg font-semibold text-foreground">
+          Pinbranch
+        </span>
+      </div>
+
+      {/* 右侧：操作按钮 */}
+      <div className="flex items-center gap-2 flex-1 justify-end">
         {session && (
           <>
             <Button 
