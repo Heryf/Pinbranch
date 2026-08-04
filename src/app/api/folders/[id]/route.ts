@@ -56,13 +56,16 @@ export async function PATCH(
     }
 
     // 更新文件夹
+    // 如果密码为空字符串或 null，则设为 null
+    const password = data.password === "" || data.password === null ? null : data.password;
+
     const updatedFolder = await prisma.folder.update({
       where: { id: params.id },
       data: {
         name: data.name,
         icon: data.icon,
         isPublic: data.isPublic,
-        password: data.password,
+        password: password,
         sortOrder: data.sortOrder,
         parentId: data.parentId,
       },
@@ -74,4 +77,3 @@ export async function PATCH(
     return NextResponse.json({ error: "Update folder failed" }, { status: 500 });
   }
 }
-

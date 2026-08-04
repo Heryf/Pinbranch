@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Lock } from "lucide-react";
 
 interface Folder {
   id: string;
@@ -51,7 +52,7 @@ export function EditFolderDialog({
   const initialFormData = {
     name: "",
     icon: "",
-    isPublic: false,
+    isPrivate: false,
     password: "",
     sortOrder: 0,
     parentId: "root"
@@ -67,10 +68,12 @@ export function EditFolderDialog({
 
   useEffect(() => {
     if (folder && open) {
+      // 数据库中 isPublic=true 表示公开；isPublic=false 表示私密
+      // 前端 UI：isPrivate=true 表示启用密码保护（对应 isPublic=false）
       setFormData({
         name: folder.name || "",
         icon: folder.icon || "",
-        isPublic: folder.isPublic || false,
+        isPrivate: !folder.isPublic,
         password: folder.password || "",
         sortOrder: typeof folder.sortOrder === 'number' ? folder.sortOrder : 0,
         parentId: folder.parentId || "root",
@@ -93,11 +96,20 @@ export function EditFolderDialog({
     setLoading(true);
 
     try {
+      // 当启用私密访问时，isPublic=false；否则 isPublic=true
+      const isPublic = !formData.isPrivate;
+      // 当关闭私密访问时，清除密码
+      const password = formData.isPrivate ? formData.password : null;
+
       const response = await fetch(`/api/folders/${folder.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          name: formData.name,
+          icon: formData.icon,
+          isPublic,
+          password,
+          sortOrder: formData.sortOrder,
           parentId: formData.parentId === "root" ? null : formData.parentId,
         }),
       });
@@ -162,17 +174,29 @@ export function EditFolderDialog({
             <p className="text-xs text-muted-foreground">数字越小，排序越靠前</p>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={formData.isPublic}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, isPublic: checked }))
-              }
-            />
-            <Label>公开访问</Label>
+          {/* 私密访问开关 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-muted-foreground" />
+                <Label>私密访问</Label>
+              </div>
+              <Switch
+                checked={formData.isPrivate}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, isPrivate: checked }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formData.isPrivate 
+                ? "启用后，访问该文件夹需要输入密码验证" 
+                : "关闭后，文件夹可正常公开访问"}
+            </p>
           </div>
 
-          {!formData.isPublic && (
+          {/* 密码输入框 - 仅当启用私密访问时显示 */}
+          {formData.isPrivate && (
             <div className="space-y-2">
               <Label>访问密码</Label>
               <Input
@@ -181,8 +205,11 @@ export function EditFolderDialog({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }
-                placeholder="设置访问密码"
+                placeholder={folder.password ? "已设置密码，留空保持不变" : "设置访问密码"}
               />
+              <p className="text-xs text-muted-foreground">
+                {folder.password ? "留空则保持原有密码不变" : "设置密码后，访问该文件夹需输入密码验证"}
+              </p>
             </div>
           )}
 

@@ -1,17 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import {  useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { WebsiteSidebar } from "@/components/website/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { BookmarkGrid } from "@/components/bookmark/BookmarkGrid";
 import { Header } from "@/components/website/header";
-
 import { Footer } from "@/components/website/footer";
-
 import { GetStarted } from "@/components/website/get-started";
 import { BackToTop } from "@/components/website/back-to-top";
-
+import { SearchBar } from "@/components/search/SearchBar";
 import { Collection } from "@prisma/client";
 
 function SearchParamsComponent() {
@@ -26,6 +24,12 @@ function SearchParamsComponent() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // 全局搜索状态
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchScope, setSearchScope] = useState<'all' | 'current'>('all');
+  const [currentEngine, setCurrentEngine] = useState("书签");
+  const [enableSearch, setEnableSearch] = useState(true);
 
   const routeToFolderInCollection = (collection: Collection, folderId?: string | null) => {
     const currentSearchParams = new URLSearchParams(searchParams.toString());
@@ -69,7 +73,19 @@ function SearchParamsComponent() {
     fetchCollectionsAndSetDefault();
   }, [searchParams]);
 
-
+  // 加载搜索设置
+  useEffect(() => {
+    const loadSearchSetting = async () => {
+      try {
+        const response = await fetch('/api/settings?group=feature');
+        const data = await response.json();
+        setEnableSearch(data.enableSearch === 'true' || data.enableSearch === true);
+      } catch (error) {
+        console.error('Load search settings failed:', error);
+      }
+    };
+    loadSearchSetting();
+  }, []);
 
   const handleCollectionChange = (id: string, slug?: string) => {
     const collection = collections.find((c) => c.id === id);
@@ -100,6 +116,11 @@ function SearchParamsComponent() {
     }
   }, [selectedCollectionId, currentFolderId]);
 
+  const handleSearch = (query: string, scope: 'all' | 'current') => {
+    setSearchQuery(query);
+    setSearchScope(scope);
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <div className="flex flex-1">
@@ -118,12 +139,27 @@ function SearchParamsComponent() {
                 onCollectionChange={handleCollectionChange}
                 onFolderSelect={handleFolderSelect}
               />
-              <div className="flex flex-1 flex-col space-y-8">
+              <div className="flex flex-1 flex-col">
                 <Header
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}
                   onBookmarkAdded={refreshData}
                 />
+                
+                {/* 全局搜索栏 - 固定在 Header 下方，切换文件夹时不重复渲染 */}
+                {enableSearch && (
+                  <div className="flex justify-center px-4 pt-4 pb-2">
+                    <SearchBar
+                      placeholder="搜索书签..."
+                      onSearch={handleSearch}
+                      currentEngine={currentEngine}
+                      onEngineChange={setCurrentEngine}
+                      currentCollection={searchScope}
+                      onCollectionChange={(scope) => setSearchScope(scope as 'all' | 'current')}
+                    />
+                  </div>
+                )}
+                
                 <div className="flex-1 overflow-y-auto">
                   <BookmarkGrid
                     key={`${selectedCollectionId}-${currentFolderId}`}
@@ -135,6 +171,9 @@ function SearchParamsComponent() {
                         ?.slug || ""
                     }
                     refreshTrigger={refreshTrigger}
+                    searchQuery={searchQuery}
+                    searchScope={searchScope}
+                    onSearchChange={handleSearch}
                   />
                 </div>
                 <Footer />

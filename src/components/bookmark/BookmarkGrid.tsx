@@ -4,11 +4,11 @@ import { useState, useEffect, useRef, useCallback, startTransition } from "react
 import { BookmarkCard } from "./BookmarkCard";
 import { FolderCard } from "./FolderCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronRight, FolderOpen, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SearchBar } from "@/components/search/SearchBar";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { PasswordDialog } from "@/components/folder/PasswordDialog";
 
 interface BookmarkGridProps {
   collectionId: string;
@@ -17,6 +17,9 @@ interface BookmarkGridProps {
   collectionSlug?: string;
   refreshTrigger?: number;
   pageSize?: number;
+  searchQuery?: string;
+  searchScope?: 'all' | 'current';
+  onSearchChange?: (query: string, scope: 'all' | 'current') => void;
 }
 
 interface Subfolder {
@@ -25,6 +28,7 @@ interface Subfolder {
   icon?: string;
   bookmarkCount: number;
   childFolderCount: number;
+  isPrivate?: boolean;
 }
 
 interface Bookmark {
@@ -43,13 +47,37 @@ interface BreadcrumbItem {
   name: string;
 }
 
+// 从 sessionStorage 获取已验证的密码
+const getVerifiedPassword = (folderId: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const key = `folder_pwd_${folderId}`;
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const setVerifiedPassword = (folderId: string, password: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = `folder_pwd_${folderId}`;
+    sessionStorage.setItem(key, password);
+  } catch {
+    // ignore
+  }
+};
+
 export function BookmarkGrid({
   collectionId,
   currentFolderId,
   collectionName = "Root",
   collectionSlug,
   refreshTrigger = 0,
-  pageSize = 100
+  pageSize = 100,
+  searchQuery = "",
+  searchScope = 'all',
+  onSearchChange,
 }: BookmarkGridProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -61,13 +89,18 @@ export function BookmarkGrid({
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [searchResults, setSearchResults] = useState<Bookmark[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchScope, setSearchScope] = useState<'all' | 'current'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [inputValue, setInputValue] = useState("");
   const [totalResults, setTotalResults] = useState(0);
-  const [currentEngine, setCurrentEngine] = useState("书签");
-  const [enableSearch, setEnableSearch] = useState(true);
+
+  // 密码验证相关状态
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordFolderName, setPasswordFolderName] = useState("");
+  const [pendingFolderId, setPendingFolderId] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const routeToFolderInCollection = (collectionSlug: string, folderId?: string) => {
     const currentSearchParams = new URLSearchParams(searchParams.toString());
@@ -76,26 +109,41 @@ export function BookmarkGrid({
     router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
   }
 
-  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   // 获取当前层级的书签和子文件夹
   const fetchBookmarkData = useCallback(async (folderId: string | null) => {
     // 延迟设置 loading，避免快速切换时的闪烁
-    // 如果请求在 150ms 内完成，则不会显示 loading 状态
     loadingTimerRef.current = setTimeout(() => {
       setLoading(true);
     }, 150);
 
     try {
+      // 获取已验证的密码
+      const password = folderId ? getVerifiedPassword(folderId) : null;
+      const passwordParam = password ? `&password=${encodeURIComponent(password)}` : '';
+
       const response = await fetch(
         `/api/collections/${collectionId}/bookmarks?` +
-        (folderId ? `folderId=${folderId}` : '')
+        (folderId ? `folderId=${folderId}` : '') +
+        passwordParam
       );
+
+      if (response.status === 403) {
+        // 需要密码验证
+        const data = await response.json();
+        setPasswordFolderName(data.folderName || "私密文件夹");
+        setPasswordDialogOpen(true);
+        setPendingFolderId(folderId);
+        setAccessDenied(true);
+        setCurrentBookmarks([]);
+        setSubfolders([]);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch data');
       }
 
+      setAccessDenied(false);
       const data = await response.json();
       setCurrentBookmarks(data.currentBookmarks || []);
       setSubfolders(data.subfolders || []);
@@ -129,6 +177,17 @@ export function BookmarkGrid({
       fetchBookmarkData(currentFolderId);
     }
   }, [collectionId, currentFolderId, refreshTrigger, fetchBookmarkData]);
+
+  // 处理搜索
+  useEffect(() => {
+    if (searchQuery) {
+      performBookmarkSearch(searchQuery, searchScope);
+    } else {
+      setSearchResults([]);
+      setInputValue("");
+      setTotalResults(0);
+    }
+  }, [searchQuery, searchScope]);
 
   // 处理文件夹导航
   const handleFolderNavigation = useCallback(async (folderId: string | null) => {
@@ -195,18 +254,34 @@ export function BookmarkGrid({
     }
   };
 
-  useEffect(() => {
-    const loadSearchSetting = async () => {
-      try {
-        const response = await fetch('/api/settings?group=feature');
-        const data = await response.json();
-        setEnableSearch(data.enableSearch === 'true' || data.enableSearch === true);
-      } catch (error) {
-        console.error('Load search settings failed:', error);
+  // 密码验证回调
+  const handlePasswordVerify = async (password: string): Promise<boolean> => {
+    if (!pendingFolderId) return false;
+    try {
+      const response = await fetch(
+        `/api/collections/${collectionId}/bookmarks?` +
+        `folderId=${pendingFolderId}&password=${encodeURIComponent(password)}`
+      );
+      if (response.ok) {
+        setVerifiedPassword(pendingFolderId, password);
+        // 重新加载数据
+        fetchBookmarkData(pendingFolderId);
+        return true;
       }
-    };
-    loadSearchSetting();
-  }, []);
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const handlePasswordCancel = () => {
+    // 密码验证取消，返回上级目录或根目录
+    if (pendingFolderId) {
+      handleFolderNavigation(null);
+    }
+    setPendingFolderId(null);
+    setAccessDenied(false);
+  };
 
   if (!collectionId) {
     return (
@@ -219,11 +294,6 @@ export function BookmarkGrid({
   if (loading) {
     return (
       <div className="px-8 space-y-8">
-        {enableSearch && (
-          <div className="flex justify-center mt-4 mb-10">
-            <Skeleton className="h-12 w-[600px] rounded-full" />
-          </div>
-        )}
         <div className="flex items-center gap-2 mb-4">
           <Skeleton className="h-8 w-20 rounded-xl" />
           <Skeleton className="h-8 w-24 rounded-xl" />
@@ -242,22 +312,43 @@ export function BookmarkGrid({
     );
   }
 
+  // 访问被拒绝状态（密码验证失败或取消）
+  if (accessDenied) {
+    return (
+      <div className="px-8 pb-8 space-y-8">
+        {/* 面包屑导航 */}
+        {currentFolderId && (
+          <nav className="flex items-center space-x-1 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleFolderNavigation(null)}
+              className="hover:bg-accent px-2 h-8 rounded-lg text-sm font-medium"
+            >
+              {collectionName}
+            </Button>
+          </nav>
+        )}
+        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+          <Lock className="w-12 h-12 mb-4 opacity-20" />
+          <p className="text-base font-medium">该文件夹已上锁</p>
+          <p className="text-sm mt-1 opacity-50">请输入密码验证后继续访问</p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => {
+              setPasswordDialogOpen(true);
+            }}
+          >
+            输入密码
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-8 pb-8 space-y-8">
-      {/* 搜索栏 */}
-      {enableSearch && (
-        <div className="flex justify-center mt-2 mb-10">
-          <SearchBar
-            placeholder="搜索书签..."
-            onSearch={performBookmarkSearch}
-            currentEngine={currentEngine}
-            onEngineChange={setCurrentEngine}
-            currentCollection={searchScope}
-            onCollectionChange={(scope) => setSearchScope(scope as 'all' | 'current')}
-          />
-        </div>
-      )}
-
       {/* 面包屑导航 */}
       {currentFolderId && !searchResults.length && !inputValue && (
         <nav className="flex items-center space-x-1 py-2">
@@ -353,6 +444,7 @@ export function BookmarkGrid({
                         icon={subfolder.icon}
                         bookmarkCount={subfolder.bookmarkCount}
                         childFolderCount={subfolder.childFolderCount}
+                        isPrivate={subfolder.isPrivate}
                         onClick={() => handleFolderNavigation(subfolder.id)}
                       />
                     ))}
@@ -418,6 +510,15 @@ export function BookmarkGrid({
           </Button>
         </div>
       )}
+
+      {/* 密码验证弹窗 */}
+      <PasswordDialog
+        folderName={passwordFolderName}
+        open={passwordDialogOpen}
+        onOpenChange={setPasswordDialogOpen}
+        onVerify={handlePasswordVerify}
+        onCancel={handlePasswordCancel}
+      />
     </div>
   );
 }

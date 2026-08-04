@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useId, memo } from "react";
-import { Folder } from "lucide-react";
+import { Folder, Lock } from "lucide-react";
 
 interface FolderCardProps {
   name: string;
   icon?: string;
   bookmarkCount?: number;
   childFolderCount?: number;
+  isPrivate?: boolean;
   onClick: () => void;
 }
 
 function FolderCardInner({
   name,
+  icon,
   bookmarkCount = 0,
   childFolderCount = 0,
+  isPrivate = false,
   onClick,
 }: FolderCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -24,6 +27,7 @@ function FolderCardInner({
   // 格式化计数显示
   const getCountText = () => {
     const parts = [];
+    if (isPrivate) parts.push("已上锁");
     if (childFolderCount > 0) parts.push(`${childFolderCount} 个文件夹`);
     if (bookmarkCount > 0) parts.push(`${bookmarkCount} 个书签`);
     if (parts.length === 0) return "空文件夹";
@@ -245,9 +249,12 @@ function FolderCardInner({
       {/* 文件夹名称和统计 */}
       <div className="flex flex-col items-center text-center gap-1">
         <span
-          className="text-sm font-semibold text-foreground truncate max-w-[130px] transition-colors duration-300 group-hover:text-primary"
+          className="text-sm font-semibold text-foreground truncate max-w-[130px] transition-colors duration-300 group-hover:text-primary flex items-center gap-1"
           title={name}
         >
+          {isPrivate && (
+            <Lock className="h-3 w-3 text-amber-500 shrink-0" />
+          )}
           {name}
         </span>
         <span className="text-xs text-muted-foreground/80 leading-relaxed">

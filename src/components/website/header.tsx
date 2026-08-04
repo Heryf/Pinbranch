@@ -9,8 +9,7 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import CreateBookmarkDialogGlobal from "@/components/bookmark/CreateBookmarkDialogGlobal";
-import {  useSearchParams, useRouter, usePathname } from "next/navigation";
-
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 interface Collection {
   id: string;
@@ -69,11 +68,8 @@ export function Header({
         <Separator orientation="vertical" className="h-4" />
       </div>
       
-      {/* 中间：标题区域 - 居中 */}
+      {/* 中间：标题区域 - 留空，由 sidebar 显示网站名称 */}
       <div className="flex items-center justify-center flex-1">
-        <span className="text-lg font-semibold text-foreground">
-          Pinbranch
-        </span>
       </div>
 
       {/* 右侧：操作按钮 */}

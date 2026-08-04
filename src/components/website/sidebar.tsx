@@ -365,7 +365,7 @@ export function WebsiteSidebar({
               >
                 <Link
                   href="/"
-                  className="pl-2 flex items-center gap-2.5 justify-start rounded-lg pr-0 w-full h-[44px]"
+                  className="pl-2 flex items-center gap-2.5 justify-center rounded-lg pr-0 w-full h-[44px]"
                 >
                   {isLoading ? (
                     <Skeleton className="w-8 h-8 rounded-lg" />
@@ -378,7 +378,7 @@ export function WebsiteSidebar({
                       className="rounded-lg object-contain block"
                     />
                   )}
-                  <span className="text-base font-bold text-foreground tracking-tight leading-none flex items-center">
+                  <span className="text-base font-bold text-foreground tracking-tight leading-none flex items-center justify-center">
                     {websiteName}
                   </span>
                 </Link>

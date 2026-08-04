@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 export async function GET(
   request: Request,
@@ -11,6 +13,32 @@ export async function GET(
     const folderId = searchParams.get("folderId");
     const sortField = searchParams.get("sortField") || "sortOrder";
     const sortOrder = searchParams.get("sortOrder") || "asc";
+    const password = searchParams.get("password") || "";
+
+    // 检查当前文件夹是否需要密码验证
+    if (folderId) {
+      const folder = await prisma.folder.findUnique({
+        where: { id: folderId },
+        select: { isPublic: true, password: true, name: true }
+      });
+
+      if (folder && !folder.isPublic && folder.password) {
+        // 非公开且设置了密码，需要验证
+        // 检查用户是否已登录（管理员无需密码）
+        const session = await getServerSession(authOptions);
+        
+        if (!session) {
+          // 未登录用户需要验证密码
+          if (password !== folder.password) {
+            return NextResponse.json(
+              { error: "Password required", folderName: folder.name, requirePassword: true },
+              { status: 403 }
+            );
+          }
+        }
+        // 已登录用户（管理员）直接放行
+      }
+    }
 
     // 并行执行：当前层级书签 + 当前层级子文件夹
     const [currentBookmarks, subfoldersRaw] = await Promise.all([
@@ -64,6 +92,8 @@ export async function GET(
 
         return {
           ...folder,
+          // 不返回密码字段
+          password: undefined,
           bookmarkCount,
           childFolderCount
         };
