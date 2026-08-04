@@ -120,7 +120,7 @@ export function EditBookmarkDialog({
       onSuccess?.();
     } catch (error) {
       console.error("Update bookmark failed:", error);
-      setError(error instanceof Error ? error.message : "Update bookmark failed");
+      setError(error instanceof Error ? error.message : "更新书签失败");
     } finally {
       setLoading(false);
     }
@@ -137,12 +137,12 @@ export function EditBookmarkDialog({
 
   const handleGetInfo = async () => {
     if (!formData.url) {
-      setError("Please enter a URL");
+      setError("请输入网址");
       return;
     }
 
     if (!isValidUrl(formData.url)) {
-      setError("Please enter a valid URL, e.g. https://example.com");
+      setError("请输入有效的网址，例如 https://example.com");
       return;
     }
 
@@ -157,7 +157,7 @@ export function EditBookmarkDialog({
       const data: UrlInfo = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || "Failed to get URL information");
+        throw new Error(data.error || "获取网址信息失败");
       }
       
       setFormData(prev => ({
@@ -169,7 +169,7 @@ export function EditBookmarkDialog({
       setAvailableIcons(data.icons || []);
     } catch (error) {
       console.error("Failed to get URL information:", error);
-      setError(error instanceof Error ? error.message : "Failed to get URL information");
+      setError(error instanceof Error ? error.message : "获取网址信息失败");
     } finally {
       setLoading(false);
     }
@@ -179,18 +179,18 @@ export function EditBookmarkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Bookmark</DialogTitle>
+          <DialogTitle>编辑书签</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="text-sm text-red-500 p-2 bg-red-50 rounded">
+            <div className="text-sm text-red-500 p-2 bg-red-50 dark:bg-red-950/30 rounded">
               {error}
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Collection</Label>
+            <Label>所属合集</Label>
             <Select
               value={formData.collectionId}
               onValueChange={(value) => 
@@ -198,7 +198,7 @@ export function EditBookmarkDialog({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select collection" />
+                <SelectValue placeholder="选择合集" />
               </SelectTrigger>
               <SelectContent>
                 {collections?.map((collection) => (
@@ -211,7 +211,7 @@ export function EditBookmarkDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>URL</Label>
+            <Label>网址</Label>
             <div className="flex gap-2">
               <Input
                 type="url"
@@ -227,13 +227,13 @@ export function EditBookmarkDialog({
                 onClick={handleGetInfo}
                 disabled={loading}
               >
-                {loading ? "Getting..." : "Get Info"}
+                {loading ? "获取中..." : "获取信息"}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Title</Label>
+            <Label>标题</Label>
             <Input
               value={formData.title}
               onChange={(e) =>
@@ -244,7 +244,7 @@ export function EditBookmarkDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Description</Label>
+            <Label>描述</Label>
             <Textarea
               value={formData.description}
               onChange={(e) =>
@@ -254,7 +254,7 @@ export function EditBookmarkDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Icon URL</Label>
+            <Label>图标地址</Label>
             <div className="flex gap-2">
               <div className="flex-1">
                 <Input
@@ -269,7 +269,7 @@ export function EditBookmarkDialog({
                 <div className="flex items-center">
                   <img
                     src={formData.icon}
-                    alt="Icon preview"
+                    alt="图标预览"
                     className="w-8 h-8 object-contain"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
@@ -280,20 +280,20 @@ export function EditBookmarkDialog({
             </div>
             {availableIcons.length > 0 && (
               <div className="mt-2">
-                <Label className="text-sm text-gray-500">选择图标</Label>
+                <Label className="text-sm text-muted-foreground">选择图标</Label>
                 <div className="grid grid-cols-6 gap-2 mt-1">
                   {availableIcons.map((iconUrl, index) => (
                     <button
                       key={index}
                       type="button"
-                      className={`p-2 border rounded hover:bg-gray-100 ${
-                        formData.icon === iconUrl ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      className={`p-2 border rounded hover:bg-muted ${
+                        formData.icon === iconUrl ? 'border-primary bg-primary/10' : 'border-border'
                       }`}
                       onClick={() => setFormData(prev => ({ ...prev, icon: iconUrl }))}
                     >
                       <img
                         src={iconUrl}
-                        alt={`Icon ${index + 1}`}
+                        alt={`图标 ${index + 1}`}
                         className="w-6 h-6 object-contain mx-auto"
                         onError={(e) => {
                           (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
@@ -306,16 +306,26 @@ export function EditBookmarkDialog({
             )}
           </div>
 
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={formData.isFeatured}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, isFeatured: checked }))
+              }
+            />
+            <Label>精选书签</Label>
+          </div>
+
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              取消
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save"}
+              {loading ? "保存中..." : "保存"}
             </Button>
           </div>
         </form>

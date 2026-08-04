@@ -45,8 +45,8 @@ interface Collection {
 interface Folder {
   id: string;
   name: string;
-  parentId: string | null;  // 添加 parentId
-  displayName?: string;     // 添加 displayName
+  parentId: string | null;
+  displayName?: string;
 }
 
 interface UrlInfo {
@@ -73,7 +73,7 @@ export function CreateBookmarkDialog({
   onSuccess
 }: CreateBookmarkDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");  // 添加错误状态
+  const [error, setError] = useState<string>("");
   const [folders, setFolders] = useState<Folder[]>([]);
   const [formData, setFormData] = useState({
     title: "",
@@ -87,13 +87,10 @@ export function CreateBookmarkDialog({
     sortOrder: 0
   });
 
-  // 添加新的状态来跟踪是否已获取信息
   const [hasLoadedInfo, setHasLoadedInfo] = useState(false);
-
-  // 添加 availableIcons 状态
   const [availableIcons, setAvailableIcons] = useState<string[]>([]);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
-  // 当默认值改变时更新表单
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -102,7 +99,6 @@ export function CreateBookmarkDialog({
     }));
   }, [defaultCollectionId, defaultFolderId]);
 
-  // 在 useEffect 中设置默认文件夹名称
   useEffect(() => {
     if (defaultFolderId) {
       const folder = folders.find(f => f.id === defaultFolderId);
@@ -115,10 +111,6 @@ export function CreateBookmarkDialog({
     }
   }, [defaultFolderId, folders]);
 
-  // 在组件内部，我们将使用 props 中的 open 和 onOpenChange，而不是创建新的状态
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
-  // 当对话框关闭时重置所有状态
   useEffect(() => {
     if (!open) {
       setHasLoadedInfo(false);
@@ -140,7 +132,7 @@ export function CreateBookmarkDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");  // 重置错误信息
+    setError("");
 
     try {
       const response = await fetch("/api/bookmarks", {
@@ -155,14 +147,13 @@ export function CreateBookmarkDialog({
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Create bookmark failed");
+        setError(data.error || "创建书签失败");
         return;
       }
 
       onOpenChange(false);
       onSuccess?.();
       
-      // 重置表单
       setFormData({
         title: "",
         url: "",
@@ -176,7 +167,7 @@ export function CreateBookmarkDialog({
       });
     } catch (error) {
       console.error("Create bookmark failed:", error);
-      setError("Create bookmark failed, please try again");
+      setError("创建书签失败，请重试");
     } finally {
       setLoading(false);
     }
@@ -187,15 +178,12 @@ export function CreateBookmarkDialog({
       const response = await fetch(`/api/collections/${collectionId}/folders?all=true`);
       const data = await response.json();
       
-      // 指定 Map 的类型
       const folderMap = new Map<string, Folder>(data.map((folder: Folder) => [folder.id, folder]));
       
-      // 处理文件夹数据，添加完整路径显示
       const processedFolders = data.map((folder: Folder) => {
         const path: string[] = [];
         let current: Folder | null = folder;
         
-        // 递归构建完整路径
         while (current) {
           path.unshift(current.name);
           current = current.parentId ? folderMap.get(current.parentId) || null : null;
@@ -213,7 +201,6 @@ export function CreateBookmarkDialog({
     }
   };
 
-  // 修改folders获取的useEffect
   useEffect(() => {
     if (defaultCollectionId) {
       fetchFolders(defaultCollectionId);
@@ -229,20 +216,19 @@ export function CreateBookmarkDialog({
     }
   };
 
-  // 如果没有书签集合,显示提示信息
   if (!defaultCollectionId) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Bookmark</DialogTitle>
+            <DialogTitle>新建书签</DialogTitle>
           </DialogHeader>
           
           <Alert>
             <AlertDescription>
-              Please create a collection first.
+              请先创建书签合集。
               <Link href="/admin/collections" className="ml-2 text-blue-600 hover:underline">
-                Go to create
+                去创建
               </Link>
             </AlertDescription>
           </Alert>
@@ -255,18 +241,18 @@ export function CreateBookmarkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Bookmark</DialogTitle>
+          <DialogTitle>新建书签</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="text-sm text-red-500 p-2 bg-red-50 rounded">
+            <div className="text-sm text-red-500 p-2 bg-red-50 dark:bg-red-950/30 rounded">
               {error}
             </div>
           )}
           
           <div className="space-y-2">
-            <Label>Folder</Label>
+            <Label>文件夹</Label>
             <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -275,15 +261,15 @@ export function CreateBookmarkDialog({
                   aria-expanded={popoverOpen}
                   className="w-full justify-between"
                 >
-                  {folders.find(f => f.id === formData.folderId)?.displayName || "Select a folder"}
+                  {folders.find(f => f.id === formData.folderId)?.displayName || "选择文件夹"}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0">
                 <Command>
-                  <CommandInput placeholder="Search folders..." />
+                  <CommandInput placeholder="搜索文件夹..." />
                   <CommandList>
-                    <CommandEmpty>No folders found</CommandEmpty>
+                    <CommandEmpty>未找到文件夹</CommandEmpty>
                     <CommandGroup>
                       <CommandItem
                         onSelect={() => {
@@ -297,7 +283,7 @@ export function CreateBookmarkDialog({
                             !formData.folderId ? "opacity-100" : "opacity-0"
                           )}
                         />
-                        <span>Root</span>
+                        <span>根目录</span>
                       </CommandItem>
                       {folders.map((folder) => (
                         <CommandItem
@@ -325,7 +311,7 @@ export function CreateBookmarkDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>URL</Label>
+            <Label>网址</Label>
             <Input
               type="url"
               value={formData.url}
@@ -337,11 +323,10 @@ export function CreateBookmarkDialog({
             />
           </div>
 
-          {/* 仅在获取信息后显示这些字段 */}
           {hasLoadedInfo && (
             <>
               <div className="space-y-2">
-                <Label>Title</Label>
+                <Label>标题</Label>
                 <Input
                   value={formData.title}
                   onChange={(e) =>
@@ -352,7 +337,7 @@ export function CreateBookmarkDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>描述</Label>
                 <Textarea
                   value={formData.description}
                   onChange={(e) =>
@@ -362,7 +347,7 @@ export function CreateBookmarkDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Icon URL</Label>
+                <Label>图标地址</Label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Input
@@ -377,7 +362,7 @@ export function CreateBookmarkDialog({
                     <div className="flex items-center">
                       <img
                         src={formData.icon}
-                        alt="Icon preview"
+                        alt="图标预览"
                         className="w-8 h-8 object-contain"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
@@ -388,20 +373,20 @@ export function CreateBookmarkDialog({
                 </div>
                 {availableIcons.length > 0 && (
                   <div className="mt-2">
-                    <Label className="text-sm text-gray-500">选择图标</Label>
+                    <Label className="text-sm text-muted-foreground">选择图标</Label>
                     <div className="grid grid-cols-6 gap-2 mt-1">
                       {availableIcons.map((iconUrl, index) => (
                         <button
                           key={index}
                           type="button"
-                          className={`p-2 border rounded hover:bg-gray-100 ${
-                            formData.icon === iconUrl ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                          className={`p-2 border rounded hover:bg-muted ${
+                            formData.icon === iconUrl ? 'border-primary bg-primary/10' : 'border-border'
                           }`}
                           onClick={() => setFormData(prev => ({ ...prev, icon: iconUrl }))}
                         >
                           <img
                             src={iconUrl}
-                            alt={`Icon ${index + 1}`}
+                            alt={`图标 ${index + 1}`}
                             className="w-6 h-6 object-contain mx-auto"
                             onError={(e) => {
                               (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
@@ -416,26 +401,16 @@ export function CreateBookmarkDialog({
             </>
           )}
 
-          {/* <div className="flex items-center space-x-2">
-            <Switch
-              checked={formData.isFeatured}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, isFeatured: checked }))
-              }
-            />
-            <Label>Featured</Label>
-          </div> */}
-
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => {
-                setError("");  // 清除错误信息
+                setError("");
                 onOpenChange(false);
               }}
             >
-              Cancel
+              取消
             </Button>
             <Button 
               type="submit" 
@@ -444,12 +419,12 @@ export function CreateBookmarkDialog({
                 e.preventDefault();
                 
                 if (!formData.url) {
-                  setError("Please enter a URL");
+                  setError("请输入网址");
                   return;
                 }
 
                 if (!isValidUrl(formData.url)) {
-                  setError("Please enter a valid URL, e.g. https://example.com");
+                  setError("请输入有效的网址，例如 https://example.com");
                   return;
                 }
 
@@ -465,7 +440,7 @@ export function CreateBookmarkDialog({
                     const data: UrlInfo = await response.json();
                     
                     if (!response.ok) {
-                      throw new Error(data.error || "获取URL信息失败");
+                      throw new Error(data.error || "获取网址信息失败");
                     }
                     
                     setFormData(prev => ({
@@ -478,7 +453,7 @@ export function CreateBookmarkDialog({
                     setHasLoadedInfo(true);
                   } catch (error) {
                     console.error("Failed to get URL information:", error);
-                    setError(error instanceof Error ? error.message : "Failed to get URL information");
+                    setError(error instanceof Error ? error.message : "获取网址信息失败");
                   } finally {
                     setLoading(false);
                   }
@@ -487,7 +462,7 @@ export function CreateBookmarkDialog({
                 }
               }}
             >
-              {loading ? "Getting..." : (hasLoadedInfo ? "Create" : "Get Info")}
+              {loading ? "获取中..." : (hasLoadedInfo ? "创建" : "获取信息")}
             </Button>
           </div>
         </form>

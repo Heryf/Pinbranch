@@ -170,8 +170,26 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="zh-CN" suppressHydrationWarning className="dark">
-      <body suppressHydrationWarning className="dark">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const stored = localStorage.getItem('pintree-theme');
+                  if (stored === 'light') {
+                    document.documentElement.classList.remove('dark');
+                  } else {
+                    document.documentElement.classList.add('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body suppressHydrationWarning>
         <ThemeProvider>
           <SessionProvider>{children}</SessionProvider>
           <Toaster />

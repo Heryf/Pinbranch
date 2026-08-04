@@ -104,14 +104,14 @@ export function EditFolderDialog({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Update folder failed: ${response.status}`);
+        throw new Error(errorData.message || `更新文件夹失败: ${response.status}`);
       }
 
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
       console.error("Update folder failed:", error);
-      alert(error instanceof Error ? error.message : "Update folder failed");
+      alert(error instanceof Error ? error.message : "更新文件夹失败");
     } finally {
       setLoading(false);
     }
@@ -121,15 +121,15 @@ export function EditFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Folder</DialogTitle>
+          <DialogTitle>编辑文件夹</DialogTitle>
           <DialogDescription>
-            Modify folder properties and settings
+            修改文件夹属性和设置
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>名称</Label>
             <Input
               value={formData.name || ""}
               onChange={(e) =>
@@ -140,7 +140,7 @@ export function EditFolderDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Icon URL</Label>
+            <Label>图标地址</Label>
             <Input
               value={formData.icon}
               onChange={(e) =>
@@ -151,7 +151,7 @@ export function EditFolderDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Sort Order</Label>
+            <Label>排序序号</Label>
             <Input
               type="number"
               value={formData.sortOrder}
@@ -159,6 +159,7 @@ export function EditFolderDialog({
                 setFormData((prev) => ({ ...prev, sortOrder: parseInt(e.target.value) }))
               }
             />
+            <p className="text-xs text-muted-foreground">数字越小，排序越靠前</p>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -168,25 +169,25 @@ export function EditFolderDialog({
                 setFormData((prev) => ({ ...prev, isPublic: checked }))
               }
             />
-            <Label>Public Access</Label>
+            <Label>公开访问</Label>
           </div>
 
           {!formData.isPublic && (
             <div className="space-y-2">
-              <Label>Password</Label>
+              <Label>访问密码</Label>
               <Input
                 type="password"
                 value={formData.password}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }
-                placeholder="Set access password"
+                placeholder="设置访问密码"
               />
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Parent Folder</Label>
+            <Label>父文件夹</Label>
             <Select
               value={formData.parentId}
               onValueChange={(value) =>
@@ -194,10 +195,10 @@ export function EditFolderDialog({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select Parent Folder" />
+                <SelectValue placeholder="选择父文件夹" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="root">Root</SelectItem>
+                <SelectItem value="root">根目录</SelectItem>
                 {folders.map((f) => (
                   <SelectItem key={f.id} value={f.id}>
                     {f.name}
@@ -213,10 +214,10 @@ export function EditFolderDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              取消
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save"}
+              {loading ? "保存中..." : "保存"}
             </Button>
           </div>
         </form>

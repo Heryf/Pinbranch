@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarHeader,
@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { ChevronRight, Folder, FolderOpen, GripVertical } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
@@ -57,8 +57,6 @@ export function WebsiteSidebar({
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const { images, isLoading } = useSettingImages("logoUrl");
   const { settings } = useSettings("basic");
@@ -256,81 +254,6 @@ export function WebsiteSidebar({
     router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
   };
 
-  // 拖拽排序
-  const handleDragStart = (e: React.DragEvent, collectionId: string) => {
-    setDraggingId(collectionId);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent, collectionId: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (draggingId && draggingId !== collectionId) {
-      setDragOverId(collectionId);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverId(null);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    setDragOverId(null);
-
-    if (!draggingId || draggingId === targetId) {
-      setDraggingId(null);
-      return;
-    }
-
-    const dragIndex = collections.findIndex((c) => c.id === draggingId);
-    const dropIndex = collections.findIndex((c) => c.id === targetId);
-
-    if (dragIndex === -1 || dropIndex === -1) {
-      setDraggingId(null);
-      return;
-    }
-
-    // 重新排序
-    const newCollections = [...collections];
-    const [removed] = newCollections.splice(dragIndex, 1);
-    newCollections.splice(dropIndex, 0, removed);
-
-    // 更新 sortOrder
-    const updatedCollections = newCollections.map((c, index) => ({
-      ...c,
-      sortOrder: index,
-    }));
-
-    setCollections(updatedCollections);
-    setDraggingId(null);
-
-    // 保存到服务器
-    try {
-      const response = await fetch("/api/collections/reorder", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collections: updatedCollections.map((c) => ({
-            id: c.id,
-            sortOrder: c.sortOrder,
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        console.error("Failed to save sort order");
-      }
-    } catch (error) {
-      console.error("Save sort order error:", error);
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggingId(null);
-    setDragOverId(null);
-  };
-
   // 渲染文件夹树
   const renderFolderTree = (folders: FolderNode[], collectionId: string) => {
     return folders.map((folder) => (
@@ -452,10 +375,10 @@ export function WebsiteSidebar({
                       alt="Logo"
                       width={32}
                       height={32}
-                      className="rounded-lg object-contain"
+                      className="rounded-lg object-contain block"
                     />
                   )}
-                  <span className="text-base font-bold text-foreground tracking-tight">
+                  <span className="text-base font-bold text-foreground tracking-tight leading-none flex items-center">
                     {websiteName}
                   </span>
                 </Link>
@@ -474,9 +397,6 @@ export function WebsiteSidebar({
             <span className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-wider">
               书签合集
             </span>
-            <span className="text-[10px] text-muted-foreground/40">
-              拖拽排序
-            </span>
           </div>
 
           <SidebarMenu className="space-y-0.5">
@@ -487,23 +407,11 @@ export function WebsiteSidebar({
                 const folderTree = collectionFolderTrees.get(collection.id) || [];
                 const isExpanded = expandedCollections.has(collection.id);
                 const isSelected = selectedCollectionId === collection.id && !currentFolderId;
-                const isDragging = draggingId === collection.id;
-                const isDragOver = dragOverId === collection.id;
 
                 return (
                   <div
                     key={collection.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, collection.id)}
-                    onDragOver={(e) => handleDragOver(e, collection.id)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, collection.id)}
-                    onDragEnd={handleDragEnd}
-                    className={cn(
-                      "space-y-0.5 rounded-lg transition-all duration-200",
-                      isDragging && "opacity-50",
-                      isDragOver && "bg-sidebar-accent/50 ring-1 ring-primary/30"
-                    )}
+                    className="space-y-0.5 rounded-lg transition-all duration-200"
                   >
                     {/* 合集项 */}
                     <SidebarMenuItem>
@@ -518,13 +426,6 @@ export function WebsiteSidebar({
                         )}
                       >
                         <div className="flex items-center gap-1.5 flex-1 min-w-0 py-1">
-                          {/* 拖拽手柄 */}
-                          <div
-                            className="shrink-0 p-0.5 rounded cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
-                            title="拖拽排序"
-                          >
-                            <GripVertical className="h-3 w-3" />
-                          </div>
                           <div
                             onClick={(e) => toggleCollection(collection.id, e)}
                             className="shrink-0 p-0.5 rounded hover:bg-sidebar-accent cursor-pointer transition-colors"

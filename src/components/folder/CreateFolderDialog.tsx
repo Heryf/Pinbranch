@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -8,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -79,7 +80,7 @@ export function CreateFolderDialog({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create");
+        throw new Error("创建失败");
       }
 
       onOpenChange(false);
@@ -102,12 +103,12 @@ export function CreateFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Folder</DialogTitle>
+          <DialogTitle>新建文件夹</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>名称</Label>
             <Input
               value={formData.name}
               onChange={(e) =>
@@ -118,7 +119,7 @@ export function CreateFolderDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Parent Folder</Label>
+            <Label>父文件夹</Label>
             <Select
               value={formData.parentId}
               onValueChange={(value) =>
@@ -126,10 +127,10 @@ export function CreateFolderDialog({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select Parent Folder" />
+                <SelectValue placeholder="选择父文件夹" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="root">Root</SelectItem>
+                <SelectItem value="root">根目录</SelectItem>
                 {folders.map((folder) => (
                   <SelectItem key={folder.id} value={folder.id}>
                     {folder.name}
@@ -139,41 +140,16 @@ export function CreateFolderDialog({
             </Select>
           </div>
 
-          {/* 暂时注释掉公开访问开关
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={formData.isPublic}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, isPublic: checked }))
-              }
-            />
-            <Label>公开访问</Label>
-          </div>
-
-          {!formData.isPublic && (
-            <div className="space-y-2">
-              <Label>访问密码</Label>
-              <Input
-                type="password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, password: e.target.value }))
-                }
-              />
-            </div>
-          )}
-          */}
-
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              取消
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create"}
+              {loading ? "创建中..." : "创建"}
             </Button>
           </div>
         </form>

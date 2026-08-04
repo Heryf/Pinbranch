@@ -28,6 +28,7 @@ interface CollectionCardProps {
     name: string;
     description: string;
     isPublic: boolean;
+    sortOrder: number;
     viewStyle: "list" | "card";
     sortStyle: "alpha" | "time" | "manual";
     viewCount: number;
@@ -67,7 +68,7 @@ export function CollectionCard({ collection, onUpdate }: CollectionCardProps) {
   const handleExport = async () => {
     try {
       const response = await fetch(`/api/collections/${collection.id}/export`);
-      if (!response.ok) throw new Error('Export failed');
+      if (!response.ok) throw new Error('导出失败');
       
       const data = await response.json();
       
@@ -83,14 +84,14 @@ export function CollectionCard({ collection, onUpdate }: CollectionCardProps) {
       document.body.removeChild(a);
 
       toast({
-        title: "Export Success",
-        description: "Your bookmark collection has been exported successfully",
+        title: "导出成功",
+        description: "书签合集已导出",
       });
     } catch (error) {
       console.error('Export failed:', error);
       toast({
-        title: "Export failed",
-        description: "Please try again later",
+        title: "导出失败",
+        description: "请稍后重试",
         variant: "destructive",
       });
     }
@@ -123,18 +124,18 @@ export function CollectionCard({ collection, onUpdate }: CollectionCardProps) {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
                       <Edit className="w-4 h-4 mr-2" />
-                      Edit
+                      编辑
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleExport}>
                       <Download className="w-4 h-4 mr-2" />
-                      Export
+                      导出
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-red-600"
                       onClick={() => setIsDeleteDialogOpen(true)}
                     >
                       <Trash className="w-4 h-4 mr-2" />
-                      Delete
+                      删除
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
