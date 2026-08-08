@@ -15,8 +15,8 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const id = params.id;
     const folderId = searchParams.get("folderId");
-    const sortField = searchParams.get("sortField") || "createdAt";
-    const sortOrder = searchParams.get("sortOrder") || "desc";
+    const sortField = searchParams.get("sortField") || "sortOrder";
+    const sortOrder = searchParams.get("sortOrder") || "asc";
 
     // 打印详细的查询条件
     console.log("Query conditions:", {
@@ -71,7 +71,7 @@ export async function GET(
         parentId: folderId || null
       },
       orderBy: {
-        name: 'asc'
+        sortOrder: 'asc'
       }
     });
 

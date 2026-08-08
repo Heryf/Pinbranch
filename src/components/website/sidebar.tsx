@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen, Home, Library } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
@@ -85,13 +85,9 @@ export function WebsiteSidebar({
           setExpandedCollections(new Set([sorted[0].id]));
         }
 
-        // 如果有公开的书签集合且没有选中的集合，选择第一个
-        if (sorted.length > 0 && !selectedCollectionId) {
-          const firstCollection = sorted[0];
-          if (onCollectionChange) {
-            onCollectionChange(firstCollection.id, firstCollection.slug);
-          }
-        }
+        // 注意：不在此自动选择合集，由 page.tsx 根据 URL 决定
+        // 如果 URL 有 collection 参数，page 会设置 selectedCollectionId
+        // 如果没有，则显示首页书签集入口
       } catch (error) {
         console.error("Get bookmark collection failed:", error);
         setCollections([]);
@@ -102,25 +98,31 @@ export function WebsiteSidebar({
     fetchCollections();
   }, []);
 
-  // 获取所有合集的文件夹（用于左侧树形展示）
+  // 获取所有合集的文件夹（单次批量 API 调用，替代循环 N+1）
   useEffect(() => {
     const fetchAllFolders = async () => {
-      const newCollectionFolders = new Map<string, any[]>();
-      const newCollectionFolderTrees = new Map<string, FolderNode[]>();
-
-      for (const collection of collections) {
-        try {
-          const response = await fetch(`/api/collections/${collection.id}/folders?all=true`);
-          const data = await response.json();
-          newCollectionFolders.set(collection.id, data);
-          newCollectionFolderTrees.set(collection.id, buildFolderTree(data));
-        } catch (error) {
-          console.error(`Get folders for collection ${collection.id} failed:`, error);
+      try {
+        const response = await fetch("/api/folders/all");
+        if (!response.ok) {
+          console.warn("Failed to fetch all folders");
+          return;
         }
-      }
+        const data = await response.json();
 
-      setCollectionFolders(newCollectionFolders);
-      setCollectionFolderTrees(newCollectionFolderTrees);
+        const newCollectionFolders = new Map<string, any[]>();
+        const newCollectionFolderTrees = new Map<string, FolderNode[]>();
+
+        for (const collection of collections) {
+          const folders = data[collection.id] || [];
+          newCollectionFolders.set(collection.id, folders);
+          newCollectionFolderTrees.set(collection.id, buildFolderTree(folders));
+        }
+
+        setCollectionFolders(newCollectionFolders);
+        setCollectionFolderTrees(newCollectionFolderTrees);
+      } catch (error) {
+        console.error("Failed to get folders:", error);
+      }
     };
 
     if (collections.length > 0) {
@@ -392,6 +394,51 @@ export function WebsiteSidebar({
 
       <SidebarContent className="flex-1 min-h-0 overflow-y-auto hide-scrollbar px-2 py-3">
         <SidebarGroup className="space-y-1">
+          {/* 首页书签集入口 - 固定在顶部 */}
+          <SidebarMenu className="space-y-0.5">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                className={cn(
+                  "flex items-center w-full rounded-lg transition-all duration-200",
+                  "hover:bg-sidebar-accent/80",
+                  !selectedCollectionId
+                    ? "bg-sidebar-accent text-primary font-medium"
+                    : ""
+                )}
+              >
+                <Link
+                  href="/"
+                  className="flex items-center gap-1.5 w-full py-1.5"
+                >
+                  <Library
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 transition-colors duration-200",
+                      !selectedCollectionId
+                        ? "text-primary"
+                        : "text-muted-foreground/70"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "truncate text-[13px] leading-5",
+                      !selectedCollectionId
+                        ? "text-primary font-medium"
+                        : "text-foreground/90"
+                    )}
+                  >
+                    首页书签集
+                  </span>
+                  <span className="ml-auto text-[10px] text-muted-foreground/50 font-medium">
+                    {collections.length}
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+
+          <div className="mx-2 my-1 h-px bg-border/30" />
+
           {/* 合集列表标题 */}
           <div className="px-2.5 pb-2 flex items-center justify-between">
             <span className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-wider">

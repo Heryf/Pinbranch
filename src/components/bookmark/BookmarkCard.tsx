@@ -1,7 +1,7 @@
 "use client";
 
 import Image from 'next/image'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Folder, ExternalLink } from 'lucide-react'
 
 interface BookmarkCardProps {
@@ -19,7 +19,7 @@ interface BookmarkCardProps {
   }
 }
 
-export function BookmarkCard({
+function BookmarkCardComponent({
   title,
   url,
   icon,
@@ -113,3 +113,6 @@ export function BookmarkCard({
     </div>
   )
 }
+
+// 使用 React.memo 避免不必要的重渲染（书签列表中通常有几十个卡片）
+export const BookmarkCard = memo(BookmarkCardComponent)

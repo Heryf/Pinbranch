@@ -3,67 +3,56 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { unstable_cache } from "next/cache";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const publicOnly = searchParams.get('publicOnly') === 'true';
-    
-    // Retrieve collections list, optionally filtering for public collections
-    const collections = await prisma.collection.findMany({
-      where: publicOnly ? {
-        isPublic: true
-      } : undefined,
-      orderBy: {
-        sortOrder: "asc"
-      }
-    });
 
-    // Return data structure:
-    // An array of collection objects with the following properties:
-    // {
-    //   id: string,           // Unique identifier of the collection
-    //   name: string,         // Name of the collection
-    //   description?: string, // Optional description of the collection
-    //   icon?: string,        // Optional icon for the collection
-    //   isPublic: boolean,    // Indicates if the collection is publicly visible
-    //   viewStyle: string,    // Display style of the collection
-    //   sortStyle: string,    // Sorting method for items in the collection
-    //   sortOrder: number,    // Numerical order for sorting collections
-    //   slug: string,         // URL-friendly name of the collection
-    //   totalBookmarks: number // Total number of bookmarks in the collection
-    // }
-    const collectionsWithBookmarkCount = await Promise.all(
-      collections.map(async (collection) => {
-        const folders = await prisma.folder.findMany({
+    // 使用 unstable_cache 缓存合集列表（含书签数），避免每次重复计算
+    const getCollectionsWithCount = unstable_cache(
+      async () => {
+        // 性能优化：用单次 groupBy 替代 N+1 查询
+        const collections = await prisma.collection.findMany({
+          where: publicOnly ? { isPublic: true } : undefined,
+          orderBy: { sortOrder: "asc" }
+        });
+
+        if (collections.length === 0) return [];
+
+        const collectionIds = collections.map(c => c.id);
+
+        // 单次查询获取所有合集的书签总数
+        const bookmarkGroups = await prisma.bookmark.groupBy({
+          by: ['collectionId'],
           where: {
-            collectionId: collection.id
+            collectionId: { in: collectionIds }
           },
-          select: {
-            id: true
+          _count: {
+            _all: true
           }
         });
 
-        const folderIds = folders.map(folder => folder.id);
+        const countMap = new Map(
+          bookmarkGroups.map(g => [g.collectionId, g._count._all])
+        );
 
-        const totalBookmarks = await prisma.bookmark.count({
-          where: {
-            collectionId: collection.id,
-            OR: [
-              { folderId: null },
-              { folderId: { in: folderIds } }
-            ]
-          }
-        });
-
-        return {
+        return collections.map(collection => ({
           ...collection,
-          totalBookmarks
-        };
-      })
+          totalBookmarks: countMap.get(collection.id) || 0
+        }));
+      },
+      ['collections-list', publicOnly ? 'public' : 'all'],
+      { revalidate: 60, tags: ['collections'] }
     );
 
-    return NextResponse.json(collectionsWithBookmarkCount);
+    const collectionsWithBookmarkCount = await getCollectionsWithCount();
+
+    const response = NextResponse.json(collectionsWithBookmarkCount);
+    // 启用 HTTP 缓存，缩短客户端响应时间
+    response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
+    return response;
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Failed to get bookmark collections" }, { status: 500 });

@@ -32,6 +32,7 @@ interface EditBookmarkDialogProps {
     url: string;
     description?: string;
     isFeatured: boolean;
+    sortOrder?: number;
     collectionId: string;
     icon?: string;
   };
@@ -64,6 +65,7 @@ export function EditBookmarkDialog({
     collectionId: bookmark.collectionId,
     isFeatured: bookmark.isFeatured,
     icon: bookmark.icon || "",
+    sortOrder: bookmark.sortOrder ?? 0,
   });
   const [availableIcons, setAvailableIcons] = useState<string[]>([]);
 
@@ -314,6 +316,19 @@ export function EditBookmarkDialog({
               }
             />
             <Label>精选书签</Label>
+          </div>
+
+          <div className="space-y-2">
+            <Label>排序号</Label>
+            <Input
+              type="number"
+              value={formData.sortOrder}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))
+              }
+              placeholder="数字越小越靠前"
+            />
+            <p className="text-xs text-muted-foreground">数字越小排序越靠前，默认 0</p>
           </div>
 
           <div className="flex justify-end gap-2">

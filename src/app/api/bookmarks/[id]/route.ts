@@ -48,6 +48,7 @@ export async function PUT(
         collectionId: data.collectionId,
         isFeatured: data.isFeatured,
         icon: data.icon,
+        sortOrder: typeof data.sortOrder === "number" ? data.sortOrder : undefined,
       },
       include: {
         collection: {

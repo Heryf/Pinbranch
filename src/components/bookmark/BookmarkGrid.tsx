@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, startTransition } from "react";
+import { useState, useEffect, useRef, useCallback, startTransition, useMemo } from "react";
 import { BookmarkCard } from "./BookmarkCard";
 import { FolderCard } from "./FolderCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +46,49 @@ interface BreadcrumbItem {
   id: string;
   name: string;
 }
+
+// 缓存条目：用于切换文件夹时不重复请求
+interface CacheEntry {
+  bookmarks: Bookmark[];
+  subfolders: Subfolder[];
+  breadcrumbs: BreadcrumbItem[];
+  ts: number;
+}
+
+// sessionStorage 缓存键
+const CACHE_PREFIX = 'pinbranch_grid_cache_';
+// 缓存有效期 5 分钟
+const CACHE_TTL = 5 * 60 * 1000;
+
+// 从 sessionStorage 读取缓存
+const getCache = (key: string): CacheEntry | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(`${CACHE_PREFIX}${key}`);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as CacheEntry;
+    if (Date.now() - entry.ts > CACHE_TTL) {
+      sessionStorage.removeItem(`${CACHE_PREFIX}${key}`);
+      return null;
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+};
+
+// 写入 sessionStorage 缓存
+const setCache = (key: string, entry: Omit<CacheEntry, 'ts'>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(
+      `${CACHE_PREFIX}${key}`,
+      JSON.stringify({ ...entry, ts: Date.now() })
+    );
+  } catch {
+    // ignore (quota exceeded)
+  }
+};
 
 // 从 sessionStorage 获取已验证的密码
 const getVerifiedPassword = (folderId: string): string | null => {
@@ -111,10 +154,58 @@ export function BookmarkGrid({
 
   // 获取当前层级的书签和子文件夹
   const fetchBookmarkData = useCallback(async (folderId: string | null) => {
-    // 延迟设置 loading，避免快速切换时的闪烁
+    const cacheKey = `${collectionId}_${folderId ?? 'root'}`;
+    const cached = getCache(cacheKey);
+
+    // Stale-while-revalidate: 先用缓存立即渲染，再后台更新
+    if (cached) {
+      setCurrentBookmarks(cached.bookmarks);
+      setSubfolders(cached.subfolders);
+      setBreadcrumbs(cached.breadcrumbs);
+      setAccessDenied(false);
+      // 缓存命中时直接跳过 loading
+      setLoading(false);
+      // 后台静默刷新（不显示 loading）
+      try {
+        const password = folderId ? getVerifiedPassword(folderId) : null;
+        const passwordParam = password ? `&password=${encodeURIComponent(password)}` : '';
+        const response = await fetch(
+          `/api/collections/${collectionId}/bookmarks?` +
+          (folderId ? `folderId=${folderId}` : '') +
+          passwordParam
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentBookmarks(data.currentBookmarks || []);
+          setSubfolders(data.subfolders || []);
+          let breadcrumbData: BreadcrumbItem[] = [];
+          if (folderId) {
+            const pathResponse = await fetch(`/api/collections/${collectionId}/folders/${folderId}/path`);
+            if (pathResponse.ok) {
+              breadcrumbData = await pathResponse.json();
+              setBreadcrumbs(breadcrumbData);
+            }
+          } else {
+            setBreadcrumbs([]);
+          }
+          // 更新缓存
+          setCache(cacheKey, {
+            bookmarks: data.currentBookmarks || [],
+            subfolders: data.subfolders || [],
+            breadcrumbs: breadcrumbData,
+          });
+        }
+      } catch (err) {
+        // 后台刷新失败时静默处理，仍使用缓存
+        console.warn('Silent refresh failed:', err);
+      }
+      return;
+    }
+
+    // 缓存未命中：延迟设置 loading，避免快速切换时的闪烁
     loadingTimerRef.current = setTimeout(() => {
       setLoading(true);
-    }, 150);
+    }, 120);
 
     try {
       // 获取已验证的密码
@@ -131,8 +222,9 @@ export function BookmarkGrid({
         // 需要密码验证
         const data = await response.json();
         setPasswordFolderName(data.folderName || "私密文件夹");
-        setPasswordDialogOpen(true);
         setPendingFolderId(folderId);
+        // 关键修复：自动打开密码弹窗，无需用户再点"输入密码"按钮
+        setPasswordDialogOpen(true);
         setAccessDenied(true);
         setCurrentBookmarks([]);
         setSubfolders([]);
@@ -145,19 +237,29 @@ export function BookmarkGrid({
 
       setAccessDenied(false);
       const data = await response.json();
-      setCurrentBookmarks(data.currentBookmarks || []);
-      setSubfolders(data.subfolders || []);
+      const bookmarks = data.currentBookmarks || [];
+      const subs = data.subfolders || [];
+      setCurrentBookmarks(bookmarks);
+      setSubfolders(subs);
 
       // 获取面包屑导航
+      let breadcrumbData: BreadcrumbItem[] = [];
       if (folderId) {
         const pathResponse = await fetch(`/api/collections/${collectionId}/folders/${folderId}/path`);
         if (pathResponse.ok) {
-          const pathData = await pathResponse.json();
-          setBreadcrumbs(pathData);
+          breadcrumbData = await pathResponse.json();
+          setBreadcrumbs(breadcrumbData);
         }
       } else {
         setBreadcrumbs([]);
       }
+
+      // 写入缓存
+      setCache(cacheKey, {
+        bookmarks,
+        subfolders: subs,
+        breadcrumbs: breadcrumbData,
+      });
     } catch (error) {
       console.error("Get data failed:", error);
       setCurrentBookmarks([]);
@@ -312,7 +414,7 @@ export function BookmarkGrid({
     );
   }
 
-  // 访问被拒绝状态（密码验证失败或取消）
+  // 访问被拒绝状态（密码验证失败或取消）- 弹窗已自动打开
   if (accessDenied) {
     return (
       <div className="px-8 pb-8 space-y-8">
@@ -330,18 +432,27 @@ export function BookmarkGrid({
           </nav>
         )}
         <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-          <Lock className="w-12 h-12 mb-4 opacity-20" />
+          <Lock className="w-12 h-12 mb-4 opacity-30" />
           <p className="text-base font-medium">该文件夹已上锁</p>
-          <p className="text-sm mt-1 opacity-50">请输入密码验证后继续访问</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => {
-              setPasswordDialogOpen(true);
-            }}
-          >
-            输入密码
-          </Button>
+          <p className="text-sm mt-1 opacity-60">请在弹出的密码框中输入访问密码</p>
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="default"
+              onClick={() => {
+                setPasswordDialogOpen(true);
+              }}
+            >
+              输入密码
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                handlePasswordCancel();
+              }}
+            >
+              返回上级
+            </Button>
+          </div>
         </div>
       </div>
     );

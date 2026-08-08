@@ -68,8 +68,8 @@ export default function BookmarksPage() {
     subfolders: []
   });
   const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<"createdAt" | "updatedAt">("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortField, setSortField] = useState<"sortOrder" | "createdAt" | "updatedAt">("sortOrder");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>();
   const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string; parentId: string | null }>>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -163,11 +163,11 @@ export default function BookmarksPage() {
     }
   };
 
-  const handleSortChange = async (field: "createdAt" | "updatedAt", order: "asc" | "desc") => {
+  const handleSortChange = async (field: "sortOrder" | "createdAt" | "updatedAt", order: "asc" | "desc") => {
     console.log("handleSortChange called with:", { field, order });
     setSortField(field);
     setSortOrder(order);
-    
+
     if (selectedCollectionId) {
       console.log("Fetching bookmarks with new sort:", { field, order, selectedCollectionId });
       await fetchBookmarks(selectedCollectionId);

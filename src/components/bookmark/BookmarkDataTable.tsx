@@ -70,9 +70,9 @@ interface BookmarkDataTableProps {
   onBookmarksChange: () => void;
   loading?: boolean;
   isNavigating?: boolean;
-  sortField: "createdAt" | "updatedAt";
+  sortField: "sortOrder" | "createdAt" | "updatedAt";
   sortOrder: "asc" | "desc";
-  onSortChange: (field: "createdAt" | "updatedAt", order: "asc" | "desc") => void;
+  onSortChange: (field: "sortOrder" | "createdAt" | "updatedAt", order: "asc" | "desc") => void;
 }
 
 type TableItem = {
@@ -83,6 +83,7 @@ type TableItem = {
   icon?: string;
   description?: string;
   isFeatured?: boolean;
+  sortOrder?: number;
   createdAt: string;
   updatedAt: string;
   folder?: {
@@ -114,7 +115,7 @@ export function BookmarkDataTable({
       type: "folder" as const,
       title: folder.name,
       name: folder.name,
-      sortOrder: folder.sortOrder,
+      sortOrder: folder.sortOrder ?? 0,
       parentId: folder.parentId,
       icon: folder.icon,
       createdAt: folder.createdAt,
@@ -129,6 +130,7 @@ export function BookmarkDataTable({
       icon: bookmark.icon,
       description: bookmark.description,
       isFeatured: bookmark.isFeatured,
+      sortOrder: bookmark.sortOrder ?? 0,
       createdAt: bookmark.createdAt,
       updatedAt: bookmark.updatedAt,
       viewCount: bookmark.viewCount,
@@ -173,11 +175,26 @@ export function BookmarkDataTable({
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-[50px] text-center">类型</TableHead>
+                <TableHead className="w-[60px] text-center">序号</TableHead>
                 <TableHead className="w-[200px]">标题</TableHead>
                 <TableHead className="w-[80px] text-center">图标</TableHead>
                 <TableHead className="w-[300px] max-w-[300px]">描述</TableHead>
                 <TableHead className="w-[80px] text-center">精选</TableHead>
                 <TableHead className="w-[100px] text-center">访问量</TableHead>
+                <TableHead className="w-[120px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-left font-medium"
+                    onClick={() => {
+                      const newOrder = sortField === "sortOrder" && sortOrder === "asc" ? "desc" : "asc";
+                      onSortChange("sortOrder", newOrder);
+                    }}
+                  >
+                    序号排序
+                    <ArrowUpDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </TableHead>
                 <TableHead className="w-[120px]">
                   <Button
                     variant="ghost"
@@ -219,6 +236,18 @@ export function BookmarkDataTable({
                     ) : (
                       <ExternalLink className="w-4 h-4 mx-auto text-muted-foreground" />
                     )}
+                  </TableCell>
+
+                  {/* 序号 */}
+                  <TableCell className="text-center">
+                    <span className={cn(
+                      "inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded text-xs font-mono",
+                      item.type === "folder"
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary/10 text-primary"
+                    )}>
+                      {item.sortOrder ?? 0}
+                    </span>
                   </TableCell>
 
                   {/* 标题 */}
