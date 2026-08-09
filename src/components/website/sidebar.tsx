@@ -40,6 +40,8 @@ interface WebsiteSidebarProps {
   onCollectionChange?: (collectionId: string, slug: string) => void;
   selectedCollectionId: string;
   currentFolderId: string | null;
+  collections?: Collection[];
+  collectionsLoading?: boolean;
 }
 
 export function WebsiteSidebar({
@@ -47,56 +49,64 @@ export function WebsiteSidebar({
   onCollectionChange,
   selectedCollectionId,
   currentFolderId,
+  collections: propCollections,
+  collectionsLoading,
 }: WebsiteSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [localCollections, setLocalCollections] = useState<Collection[]>([]);
   const [collectionFolders, setCollectionFolders] = useState<Map<string, any[]>>(new Map());
   const [collectionFolderTrees, setCollectionFolderTrees] = useState<Map<string, FolderNode[]>>(new Map());
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [localLoading, setLocalLoading] = useState(true);
+
+  // 使用 props 传入的 collections，或自行获取
+  const collections = propCollections || localCollections;
+  const loading = propCollections ? !!collectionsLoading : localLoading;
 
   const { images, isLoading } = useSettingImages("logoUrl");
   const { settings } = useSettings("basic");
   const websiteName = settings?.websiteName || "PinTree";
 
-  // 获取书签集合列表
+  // 获取书签集合列表（仅在未通过 props 传入时执行）
   useEffect(() => {
+    if (propCollections) {
+      setLocalLoading(false);
+      // 默认展开第一个合集
+      if (propCollections.length > 0) {
+        setExpandedCollections(new Set([propCollections[0].id]));
+      }
+      return;
+    }
     const fetchCollections = async () => {
       try {
-        setLoading(true);
+        setLocalLoading(true);
         const response = await fetch("/api/collections?publicOnly=true");
         const data = await response.json();
 
         if (!Array.isArray(data)) {
           console.error("API returned data format is incorrect");
-          setCollections([]);
+          setLocalCollections([]);
           return;
         }
 
-        // 按 sortOrder 排序
         const sorted = data.sort((a: Collection, b: Collection) => a.sortOrder - b.sortOrder);
-        setCollections(sorted);
+        setLocalCollections(sorted);
 
-        // 默认展开第一个合集
         if (sorted.length > 0) {
           setExpandedCollections(new Set([sorted[0].id]));
         }
-
-        // 注意：不在此自动选择合集，由 page.tsx 根据 URL 决定
-        // 如果 URL 有 collection 参数，page 会设置 selectedCollectionId
-        // 如果没有，则显示首页书签集入口
       } catch (error) {
         console.error("Get bookmark collection failed:", error);
-        setCollections([]);
+        setLocalCollections([]);
       } finally {
-        setLoading(false);
+        setLocalLoading(false);
       }
     };
     fetchCollections();
-  }, []);
+  }, [propCollections]);
 
   // 获取所有合集的文件夹（单次批量 API 调用，替代循环 N+1）
   useEffect(() => {

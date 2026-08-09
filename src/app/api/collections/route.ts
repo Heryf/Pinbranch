@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { unstable_cache } from "next/cache";
+import { revalidateTag } from "next/cache";
 
 export async function GET(request: Request) {
   try {
@@ -106,6 +107,9 @@ export async function POST(request: Request) {
         slug,
       },
     });
+
+    // 缓存失效：合集创建后清除缓存
+    revalidateTag('collections');
 
     return NextResponse.json(collection);
   } catch (error: unknown) {

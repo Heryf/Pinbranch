@@ -14,14 +14,16 @@ interface Collection {
   icon?: string;
   isPublic: boolean;
   sortOrder: number;
-  totalBookmarks: number;
-  viewCount: number;
+  totalBookmarks?: number;
+  viewCount?: number;
   viewStyle?: "list" | "card";
 }
 
 interface CollectionGridProps {
   onSelect?: (slug: string) => void;
   className?: string;
+  collections?: Collection[];
+  loading?: boolean;
 }
 
 // 单个合集卡片 - memo 优化重渲染
@@ -96,21 +98,30 @@ const CollectionGridCard = memo(function CollectionGridCard({
         )}
         <span className="inline-flex items-center gap-1 text-muted-foreground/70">
           <Hash className="w-3 h-3" />
-          {collection.totalBookmarks}
+          {collection.totalBookmarks || 0}
         </span>
       </div>
     </button>
   );
 });
 
-export function CollectionGrid({ onSelect, className }: CollectionGridProps) {
-  const [collections, setCollections] = useState<Collection[]>([]);
+export function CollectionGrid({ onSelect, className, collections: propCollections, loading: propLoading }: CollectionGridProps) {
+  const [localCollections, setLocalCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 使用 props 传入的 collections，或自行获取（兼容独立使用）
+  const collections = propCollections || localCollections;
+  const isLoading = propCollections ? !!propLoading : loading;
+
   useEffect(() => {
+    // 如果已有 props 传入的 collections，跳过内部获取
+    if (propCollections) {
+      setLoading(false);
+      return;
+    }
     fetchCollections();
-  }, []);
+  }, [propCollections]);
 
   const fetchCollections = async () => {
     try {
@@ -118,7 +129,7 @@ export function CollectionGrid({ onSelect, className }: CollectionGridProps) {
       const response = await fetch("/api/collections?publicOnly=true");
       if (!response.ok) throw new Error('Failed to load collections');
       const data = await response.json();
-      setCollections(Array.isArray(data) ? data : []);
+      setLocalCollections(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch collections:", err);
       setError(err instanceof Error ? err.message : "加载失败");
@@ -127,7 +138,7 @@ export function CollectionGrid({ onSelect, className }: CollectionGridProps) {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={cn("grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-5", className)}>
         {[...Array(8)].map((_, i) => (

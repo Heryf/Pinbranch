@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { revalidateTag } from "next/cache";
 
 export async function DELETE(
   request: Request,
@@ -18,6 +19,9 @@ export async function DELETE(
         id: params.id
       },
     });
+
+    // 缓存失效
+    revalidateTag('collections');
 
     return NextResponse.json({ message: "Delete success" });
   } catch (error) {
@@ -63,6 +67,9 @@ export async function PUT(
         },
       },
     });
+
+    // 缓存失效
+    revalidateTag('collections');
 
     return NextResponse.json(bookmark);
   } catch (error) {

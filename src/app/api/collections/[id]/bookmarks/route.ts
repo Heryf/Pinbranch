@@ -15,6 +15,11 @@ export async function GET(
     const sortOrder = searchParams.get("sortOrder") || "asc";
     const password = searchParams.get("password") || "";
 
+    // 分页参数：默认每页 48 条，减少单次加载量
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") || "48")));
+    const skip = (page - 1) * pageSize;
+
     // 检查当前文件夹是否需要密码验证
     if (folderId) {
       const folder = await prisma.folder.findUnique({
@@ -40,8 +45,8 @@ export async function GET(
       }
     }
 
-    // 并行执行：当前层级书签 + 当前层级子文件夹
-    const [currentBookmarks, subfoldersRaw] = await Promise.all([
+    // 并行执行：当前层级书签（分页）+ 当前层级子文件夹 + 书签总数
+    const [currentBookmarks, subfoldersRaw, totalCount] = await Promise.all([
       prisma.bookmark.findMany({
         where: {
           collectionId: id,
@@ -50,6 +55,8 @@ export async function GET(
         orderBy: {
           [sortField]: sortOrder as 'asc' | 'desc',
         },
+        skip,
+        take: pageSize,
         include: {
           collection: {
             select: {
@@ -71,39 +78,59 @@ export async function GET(
         orderBy: {
           [sortField]: sortOrder as 'asc' | 'desc',
         },
+      }),
+      prisma.bookmark.count({
+        where: {
+          collectionId: id,
+          ...(folderId ? { folderId } : { folderId: null })
+        },
       })
     ]);
 
-    // 获取每个子文件夹的统计信息
-    const subfolders = await Promise.all(
-      subfoldersRaw.map(async (folder) => {
-        const [bookmarkCount, childFolderCount] = await Promise.all([
-          prisma.bookmark.count({
-            where: {
-              folderId: folder.id
-            }
-          }),
-          prisma.folder.count({
-            where: {
-              parentId: folder.id
-            }
-          })
-        ]);
+    // 获取每个子文件夹的统计信息 - 用 groupBy 替代 N+1 循环
+    let subfolders: any[] = [];
+    if (subfoldersRaw.length > 0) {
+      const subfolderIds = subfoldersRaw.map(f => f.id);
 
-        return {
-          ...folder,
-          // 不返回密码字段
-          password: undefined,
-          bookmarkCount,
-          childFolderCount
-        };
-      })
-    );
+      const [bookmarkCountGroups, childFolderCountGroups] = await Promise.all([
+        prisma.bookmark.groupBy({
+          by: ['folderId'],
+          where: { folderId: { in: subfolderIds } },
+          _count: { _all: true }
+        }),
+        prisma.folder.groupBy({
+          by: ['parentId'],
+          where: { parentId: { in: subfolderIds } },
+          _count: { _all: true }
+        })
+      ]);
 
-    return NextResponse.json({
+      const bookmarkCountMap = new Map(
+        bookmarkCountGroups.map(g => [g.folderId, g._count._all])
+      );
+      const childFolderCountMap = new Map(
+        childFolderCountGroups.map(g => [g.parentId, g._count._all])
+      );
+
+      subfolders = subfoldersRaw.map(folder => ({
+        ...folder,
+        password: undefined,
+        bookmarkCount: bookmarkCountMap.get(folder.id) || 0,
+        childFolderCount: childFolderCountMap.get(folder.id) || 0
+      }));
+    }
+
+    const response = NextResponse.json({
       currentBookmarks,
       subfolders,
+      total: totalCount,
+      page,
+      pageSize,
+      hasMore: skip + currentBookmarks.length < totalCount,
     });
+    // 浏览器缓存 15 秒，CDN 缓存 30 秒，SWR 60 秒
+    response.headers.set('Cache-Control', 'public, max-age=15, s-maxage=30, stale-while-revalidate=60');
+    return response;
 
   } catch (error) {
     console.error("Failed to get content:", error);

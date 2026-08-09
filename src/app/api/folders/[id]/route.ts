@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { revalidateTag } from "next/cache";
 
 export async function DELETE(
   request: Request,
@@ -13,7 +14,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 检查文件夹是否存在
     const folder = await prisma.folder.findUnique({
       where: { id: params.id },
     });
@@ -22,10 +22,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    // 删除文件夹
     await prisma.folder.delete({
       where: { id: params.id },
     });
+
+    // 缓存失效
+    revalidateTag(`folders-${folder.collectionId}`);
+    revalidateTag('collections');
 
     return NextResponse.json({ message: "Delete success" });
   } catch (error) {
@@ -46,7 +49,6 @@ export async function PATCH(
 
     const data = await request.json();
 
-    // 检查文件夹是否存在
     const folder = await prisma.folder.findUnique({
       where: { id: params.id },
     });
@@ -55,8 +57,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    // 更新文件夹
-    // 如果密码为空字符串或 null，则设为 null
     const password = data.password === "" || data.password === null ? null : data.password;
 
     const updatedFolder = await prisma.folder.update({
@@ -70,6 +70,10 @@ export async function PATCH(
         parentId: data.parentId,
       },
     });
+
+    // 缓存失效
+    revalidateTag(`folders-${folder.collectionId}`);
+    revalidateTag('collections');
 
     return NextResponse.json(updatedFolder);
   } catch (error) {

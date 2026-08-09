@@ -7,7 +7,7 @@ import "./globals.css";
 import { Analytics } from "@/components/analytics/Analytics";
 import { Toaster as SonnerToaster } from "sonner";
 import { defaultSettings } from "@/lib/defaultSettings";
-import { cache } from 'react'
+import { unstable_cache } from 'next/cache';
 import type { Metadata, ResolvingMetadata } from 'next'
 import { GoogleAnalytics } from '@next/third-parties/google'
 
@@ -22,6 +22,67 @@ async function checkSiteSettingTableExists() {
   return result[0].exists;
 }
 
+// 缓存 metadata 相关 DB 查询，避免每次请求 5 次 DB 往返
+const getCachedSiteMetadata = unstable_cache(
+  async () => {
+    const tableExists = await checkSiteSettingTableExists();
+    const keys = ["websiteName", "description", "keywords", "siteUrl", "faviconUrl", "ogImage"];
+    let settings: any;
+    if (tableExists) {
+      settings = await prisma.siteSetting.findMany({
+        where: { key: { in: [...keys] } },
+      });
+    }
+
+    settings = settings && settings.length > 0 ? settings : defaultSettings.filter((setting) =>
+      keys.includes(setting.key)
+    );
+
+    const settingsMap = settings.reduce((acc: any, setting: any) => {
+      acc[setting.key] = setting.value;
+      return acc;
+    }, {} as Record<string, string>);
+
+    const imageBaseUrl = '/api/images/';
+    const faviconSetting = settings.find((setting: any) => setting.key === 'faviconUrl');
+    const faviconId = faviconSetting ?
+      (await prisma.settingImage.findFirst({
+        where: { settingId: faviconSetting.id },
+        select: { imageId: true }
+      }))?.imageId || '' : '';
+    const faviconUrl = faviconId ? `${imageBaseUrl}${faviconId}` : '/favicon/favicon.ico';
+
+    return { settingsMap, faviconUrl };
+  },
+  ['site-metadata-v1'],
+  { revalidate: 300, tags: ['site-metadata'] }
+);
+
+// 缓存 analytics ID 查询
+const getCachedAnalyticsIds = unstable_cache(
+  async () => {
+    if (process.env.NODE_ENV !== "production") {
+      return { googleAnalyticsId: "", clarityId: "" };
+    }
+    const tableExists = await checkSiteSettingTableExists();
+    if (!tableExists) {
+      return { googleAnalyticsId: "", clarityId: "" };
+    }
+    const analytics = await prisma.siteSetting.findMany({
+      where: { key: { in: ["googleAnalyticsId", "clarityId"] } },
+    });
+    if (analytics.length === 0) {
+      return { googleAnalyticsId: "", clarityId: "" };
+    }
+    return analytics.reduce((acc, setting) => {
+      acc[setting.key] = setting.value || "";
+      return acc;
+    }, {} as Record<string, string>);
+  },
+  ['analytics-ids-v1'],
+  { revalidate: 600, tags: ['site-metadata'] }
+);
+
 type Props = {
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
@@ -32,56 +93,17 @@ export const generateMetadata = async (
   parent: ResolvingMetadata
 ): Promise<Metadata> => {
   try {
-    const tableExists = await checkSiteSettingTableExists();
-    const keys = ["websiteName", "description", "keywords", "siteUrl", "faviconUrl", "ogImage"];
-    let settings: any;
-    if (tableExists) {
-      settings = await prisma.siteSetting.findMany({
-        where: {
-          key: {
-            in: [...keys],
-          },
-        },
-      });
-    } 
+    const { settingsMap, faviconUrl } = await getCachedSiteMetadata();
 
-    // console.log(settings)
-
-    settings = settings.length > 0 ? settings : defaultSettings.filter((setting) =>
-      keys.includes(setting.key)
-    );
-
-    const settingsMap = settings.reduce((acc: any, setting: any) => {
-      acc[setting.key] = setting.value;
-      return acc;
-    }, {} as Record<string, string>);
-
-    // const faviconBase =
-    //   settingsMap.faviconUrl?.replace("favicon.ico", "") || "/favicon/";
     const siteUrl =
       settingsMap.siteUrl ||
       process.env.NEXT_PUBLIC_APP_URL ||
       "http://localhost:3000";
 
-
-    const imageBaseUrl = '/api/images/'
-
-
-    const faviconSetting = settings.find((setting: any) => setting.key === 'faviconUrl');
-    const faviconId = faviconSetting ? 
-      (await prisma.settingImage.findFirst({
-        where: { settingId: faviconSetting.id },
-        select: { imageId: true }
-      }))?.imageId || '' : '';
-    const faviconUrl = faviconId ? `${imageBaseUrl}${faviconId}` : '/favicon/favicon.ico'
-
     return {
-      title:
-        settingsMap.websiteName,
-      description:
-        settingsMap.description,
-      keywords:
-        settingsMap.keywords,
+      title: settingsMap.websiteName,
+      description: settingsMap.description,
+      keywords: settingsMap.keywords,
       metadataBase: new URL(siteUrl),
       alternates: {
         canonical: siteUrl,
@@ -93,33 +115,6 @@ export const generateMetadata = async (
             sizes: "32x32",
             type: "image/x-icon",
           },
-          // {
-          //   url: `${faviconBase}favicon-16x16.png`,
-          //   sizes: "16x16",
-          //   type: "image/png",
-          // },
-          // {
-          //   url: `${faviconBase}favicon-32x32.png`,
-          //   sizes: "32x32",
-          //   type: "image/png",
-          // },
-          // {
-          //   url: `${faviconBase}favicon-192x192.png`,
-          //   sizes: "192x192",
-          //   type: "image/png",
-          // },
-          // {
-          //   url: `${faviconBase}favicon-512x512.png`,
-          //   sizes: "512x512",
-          //   type: "image/png",
-          // },
-        // apple: [
-        //   {
-        //     url: `${faviconBase}favicon-180x180.png`,
-        //     sizes: "180x180",
-        //     type: "image/png",
-        //   },
-        // ],
         ],
       },
     };
@@ -143,31 +138,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let analyticsMap: any = {
-    googleAnalyticsId: "",
-    clarityId: "",
-  };
-
-  if (process.env.NODE_ENV === "production") {
-    const tableExists = await checkSiteSettingTableExists();
-    if (tableExists) {
-      // 获取统计代码ID
-      const analytics = await prisma.siteSetting.findMany({
-        where: {
-          key: {
-            in: ["googleAnalyticsId", "clarityId"],
-          },
-        },
-      });
-
-      if (analytics.length > 0) {
-        analyticsMap = analytics.reduce((acc, setting) => {
-          acc[setting.key] = setting.value || "";
-          return acc;
-        }, {} as Record<string, string>);
-      }
-    }
-  }
+  const analyticsMap = await getCachedAnalyticsIds();
 
   return (
     <html lang="zh-CN" suppressHydrationWarning>

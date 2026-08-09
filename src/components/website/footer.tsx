@@ -1,5 +1,6 @@
 import { useSettings } from "@/hooks/use-settings";
 import Link from "next/link";
+import { Github, Twitter } from "lucide-react";
 
 export function Footer() {
   const { settings } = useSettings('basic');
@@ -7,12 +8,12 @@ export function Footer() {
   const socialLinks = [
     {
       key: 'githubUrl',
-      icon: 'ri-github-fill',
+      icon: Github,
       label: 'GitHub'
     },
     {
       key: 'twitterUrl',
-      icon: 'ri-twitter-x-fill',
+      icon: Twitter,
       label: 'Twitter'
     }
   ];
@@ -46,7 +47,7 @@ export function Footer() {
 
           {/* 右侧社交媒体链接 */}
           <div className="flex items-center space-x-4">
-            {socialLinks.map(({ key, icon, label }) => 
+            {socialLinks.map(({ key, icon: Icon, label }) =>
               (key === 'contactEmail' ? settings[key] : settings[key]) && (
                 <Link
                   key={key}
@@ -56,7 +57,7 @@ export function Footer() {
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   aria-label={label}
                 >
-                  <i className={`${icon} h-6 w-6`} />
+                  <Icon className="h-5 w-5" />
                 </Link>
               )
             )}

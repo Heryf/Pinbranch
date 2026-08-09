@@ -1,6 +1,5 @@
 "use client";
 
-import Image from 'next/image'
 import { memo, useState } from 'react'
 import { Folder, ExternalLink } from 'lucide-react'
 
@@ -49,20 +48,23 @@ function BookmarkCardComponent({
       `}
     >
       <div className="relative w-9 h-9 mr-3.5 flex-shrink-0">
-        <Image
+        {/* 使用原生 img 替代 next/image，避免 Vercel 图片优化配额消耗 */}
+        <img
           src={imageError ? defaultIcon : (icon || defaultIcon)}
           alt={title}
-          fill
-          className="rounded-lg object-cover transition-transform duration-300"
+          width={36}
+          height={36}
+          loading="lazy"
+          decoding="async"
+          className="rounded-lg object-cover transition-transform duration-300 w-9 h-9"
           style={{
             transform: isHovered ? 'scale(1.08)' : 'scale(1)',
           }}
           onError={() => setImageError(true)}
-          priority={isFeatured}
         />
         {/* 图标悬停时显示外部链接指示 */}
         <div
-          className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg transition-opacity duration-300"
+          className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg transition-opacity duration-300 pointer-events-none"
           style={{ opacity: isHovered ? 1 : 0 }}
         >
           <ExternalLink className="w-3.5 h-3.5 text-white" />

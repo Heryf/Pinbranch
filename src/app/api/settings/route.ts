@@ -2,39 +2,43 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-
+import { revalidateTag, unstable_cache } from 'next/cache';
 
 export const runtime = 'nodejs';
-// 增加超时时间到最大值
-export const maxDuration = 60; // Vercel Hobby 允许的最大时间是 60 秒
-export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const group = searchParams.get('group');
-    
-    // 获取所有设置
-    const settings = group 
+// 缓存设置查询，避免每次请求都查 DB
+const getCachedSettings = unstable_cache(
+  async (group?: string) => {
+    const settings = group
       ? await prisma.siteSetting.findMany({ where: { group } })
       : await prisma.siteSetting.findMany();
 
-    
-    // 将设置转换为键值对格式
     const formattedSettings = settings.reduce((acc: Record<string, string>, setting) => {
       acc[setting.key] = setting.value || '';
       return acc;
     }, {});
 
-
-    // 合并默认值和数据库值
-    const result = {
+    return {
       ...formattedSettings,
       enableSearch: true
     };
+  },
+  ['settings-cache-v1'],
+  { revalidate: 120, tags: ['site-metadata'] }
+);
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const group = searchParams.get('group') || undefined;
 
-    return NextResponse.json(result);
+    const result = await getCachedSettings(group);
+
+    // 添加 HTTP 缓存头
+    const response = NextResponse.json(result);
+    response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
+    return response;
   } catch (error) {
     console.error('Failed to get settings:', error);
     return NextResponse.json({ 
@@ -74,6 +78,9 @@ export async function POST(request: Request) {
       }
 
 
+
+      // 缓存失效：设置更新后清除 metadata 和 collections 缓存
+      revalidateTag('site-metadata');
 
       return NextResponse.json({ 
         message: 'Settings saved',

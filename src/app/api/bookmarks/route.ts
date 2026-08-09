@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { revalidateTag } from "next/cache";
 
 export async function GET(request: Request) {
   try {
@@ -125,6 +126,9 @@ export async function POST(request: Request) {
         tags: true,
       },
     });
+
+    // 缓存失效：书签变化影响合集书签数
+    revalidateTag('collections');
 
     return NextResponse.json(bookmark);
   } catch (error) {

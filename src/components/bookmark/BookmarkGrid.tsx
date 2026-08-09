@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, startTransition, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, startTransition, type ReactNode } from "react";
 import { BookmarkCard } from "./BookmarkCard";
 import { FolderCard } from "./FolderCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +52,8 @@ interface CacheEntry {
   bookmarks: Bookmark[];
   subfolders: Subfolder[];
   breadcrumbs: BreadcrumbItem[];
+  hasMore: boolean;
+  total: number;
   ts: number;
 }
 
@@ -129,6 +131,10 @@ export function BookmarkGrid({
   const [currentBookmarks, setCurrentBookmarks] = useState<Bookmark[]>([]);
   const [subfolders, setSubfolders] = useState<Subfolder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentDataPage, setCurrentDataPage] = useState(1);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [searchResults, setSearchResults] = useState<Bookmark[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -152,7 +158,9 @@ export function BookmarkGrid({
     router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
   }
 
-  // 获取当前层级的书签和子文件夹
+  // 获取当前层级的书签和子文件夹（分页加载第一页）
+  const BOOKMARK_PAGE_SIZE = 48;
+
   const fetchBookmarkData = useCallback(async (folderId: string | null) => {
     const cacheKey = `${collectionId}_${folderId ?? 'root'}`;
     const cached = getCache(cacheKey);
@@ -162,8 +170,10 @@ export function BookmarkGrid({
       setCurrentBookmarks(cached.bookmarks);
       setSubfolders(cached.subfolders);
       setBreadcrumbs(cached.breadcrumbs);
+      setHasMore(cached.hasMore);
+      setTotalCount(cached.total);
+      setCurrentDataPage(1);
       setAccessDenied(false);
-      // 缓存命中时直接跳过 loading
       setLoading(false);
       // 后台静默刷新（不显示 loading）
       try {
@@ -172,12 +182,16 @@ export function BookmarkGrid({
         const response = await fetch(
           `/api/collections/${collectionId}/bookmarks?` +
           (folderId ? `folderId=${folderId}` : '') +
+          `&page=1&pageSize=${BOOKMARK_PAGE_SIZE}` +
           passwordParam
         );
         if (response.ok) {
           const data = await response.json();
           setCurrentBookmarks(data.currentBookmarks || []);
           setSubfolders(data.subfolders || []);
+          setHasMore(data.hasMore || false);
+          setTotalCount(data.total || 0);
+          setCurrentDataPage(1);
           let breadcrumbData: BreadcrumbItem[] = [];
           if (folderId) {
             const pathResponse = await fetch(`/api/collections/${collectionId}/folders/${folderId}/path`);
@@ -193,10 +207,11 @@ export function BookmarkGrid({
             bookmarks: data.currentBookmarks || [],
             subfolders: data.subfolders || [],
             breadcrumbs: breadcrumbData,
+            hasMore: data.hasMore || false,
+            total: data.total || 0,
           });
         }
       } catch (err) {
-        // 后台刷新失败时静默处理，仍使用缓存
         console.warn('Silent refresh failed:', err);
       }
       return;
@@ -208,26 +223,26 @@ export function BookmarkGrid({
     }, 120);
 
     try {
-      // 获取已验证的密码
       const password = folderId ? getVerifiedPassword(folderId) : null;
       const passwordParam = password ? `&password=${encodeURIComponent(password)}` : '';
 
       const response = await fetch(
         `/api/collections/${collectionId}/bookmarks?` +
         (folderId ? `folderId=${folderId}` : '') +
+        `&page=1&pageSize=${BOOKMARK_PAGE_SIZE}` +
         passwordParam
       );
 
       if (response.status === 403) {
-        // 需要密码验证
         const data = await response.json();
         setPasswordFolderName(data.folderName || "私密文件夹");
         setPendingFolderId(folderId);
-        // 关键修复：自动打开密码弹窗，无需用户再点"输入密码"按钮
         setPasswordDialogOpen(true);
         setAccessDenied(true);
         setCurrentBookmarks([]);
         setSubfolders([]);
+        setHasMore(false);
+        setTotalCount(0);
         return;
       }
 
@@ -241,6 +256,9 @@ export function BookmarkGrid({
       const subs = data.subfolders || [];
       setCurrentBookmarks(bookmarks);
       setSubfolders(subs);
+      setHasMore(data.hasMore || false);
+      setTotalCount(data.total || 0);
+      setCurrentDataPage(1);
 
       // 获取面包屑导航
       let breadcrumbData: BreadcrumbItem[] = [];
@@ -259,13 +277,16 @@ export function BookmarkGrid({
         bookmarks,
         subfolders: subs,
         breadcrumbs: breadcrumbData,
+        hasMore: data.hasMore || false,
+        total: data.total || 0,
       });
     } catch (error) {
       console.error("Get data failed:", error);
       setCurrentBookmarks([]);
       setSubfolders([]);
+      setHasMore(false);
+      setTotalCount(0);
     } finally {
-      // 清除延迟 loading 定时器
       if (loadingTimerRef.current) {
         clearTimeout(loadingTimerRef.current);
         loadingTimerRef.current = null;
@@ -273,6 +294,34 @@ export function BookmarkGrid({
       setLoading(false);
     }
   }, [collectionId]);
+
+  // 加载更多书签（分页追加）
+  const loadMoreBookmarks = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = currentDataPage + 1;
+      const password = currentFolderId ? getVerifiedPassword(currentFolderId) : null;
+      const passwordParam = password ? `&password=${encodeURIComponent(password)}` : '';
+      const response = await fetch(
+        `/api/collections/${collectionId}/bookmarks?` +
+        (currentFolderId ? `folderId=${currentFolderId}` : '') +
+        `&page=${nextPage}&pageSize=${BOOKMARK_PAGE_SIZE}` +
+        passwordParam
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const newBookmarks = data.currentBookmarks || [];
+        setCurrentBookmarks(prev => [...prev, ...newBookmarks]);
+        setHasMore(data.hasMore || false);
+        setCurrentDataPage(nextPage);
+      }
+    } catch (error) {
+      console.error("Load more failed:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [collectionId, currentFolderId, currentDataPage, hasMore, loadingMore]);
 
   useEffect(() => {
     if (collectionId) {
@@ -362,11 +411,11 @@ export function BookmarkGrid({
     try {
       const response = await fetch(
         `/api/collections/${collectionId}/bookmarks?` +
-        `folderId=${pendingFolderId}&password=${encodeURIComponent(password)}`
+        `folderId=${pendingFolderId}&password=${encodeURIComponent(password)}` +
+        `&page=1&pageSize=${BOOKMARK_PAGE_SIZE}`
       );
       if (response.ok) {
         setVerifiedPassword(pendingFolderId, password);
-        // 重新加载数据
         fetchBookmarkData(pendingFolderId);
         return true;
       }
@@ -377,7 +426,8 @@ export function BookmarkGrid({
   };
 
   const handlePasswordCancel = () => {
-    // 密码验证取消，返回上级目录或根目录
+    // 密码验证取消：先关闭弹窗，再返回上级目录
+    setPasswordDialogOpen(false);
     if (pendingFolderId) {
       handleFolderNavigation(null);
     }
@@ -385,16 +435,17 @@ export function BookmarkGrid({
     setAccessDenied(false);
   };
 
+  // 渲染内容区域（密码验证弹窗始终渲染，不受提前返回影响）
+  let content: ReactNode = null;
+
   if (!collectionId) {
-    return (
+    content = (
       <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">加载中...</p>
       </div>
     );
-  }
-
-  if (loading) {
-    return (
+  } else if (loading) {
+    content = (
       <div className="px-8 space-y-8">
         <div className="flex items-center gap-2 mb-4">
           <Skeleton className="h-8 w-20 rounded-xl" />
@@ -412,11 +463,8 @@ export function BookmarkGrid({
         </div>
       </div>
     );
-  }
-
-  // 访问被拒绝状态（密码验证失败或取消）- 弹窗已自动打开
-  if (accessDenied) {
-    return (
+  } else if (accessDenied) {
+    content = (
       <div className="px-8 pb-8 space-y-8">
         {/* 面包屑导航 */}
         {currentFolderId && (
@@ -434,7 +482,7 @@ export function BookmarkGrid({
         <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
           <Lock className="w-12 h-12 mb-4 opacity-30" />
           <p className="text-base font-medium">该文件夹已上锁</p>
-          <p className="text-sm mt-1 opacity-60">请在弹出的密码框中输入访问密码</p>
+          <p className="text-sm mt-1 opacity-60">请点击下方按钮输入访问密码</p>
           <div className="mt-4 flex gap-2">
             <Button
               variant="default"
@@ -456,173 +504,199 @@ export function BookmarkGrid({
         </div>
       </div>
     );
+  } else {
+    content = (
+      <div className="px-8 pb-8 space-y-8">
+        {/* 面包屑导航 */}
+        {currentFolderId && !searchResults.length && !inputValue && (
+          <nav className="flex items-center space-x-1 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleFolderNavigation(null)}
+              className={cn(
+                "hover:bg-accent px-2 h-8 rounded-lg text-sm font-medium",
+                !currentFolderId && "bg-accent"
+              )}
+            >
+              {collectionName}
+            </Button>
+            {breadcrumbs.length > 0 && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                {breadcrumbs.map((item, index) => (
+                  <div key={item.id} className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleFolderNavigation(item.id)}
+                      className={cn(
+                        "hover:text-muted-foreground hover:bg-accent px-2 h-8 rounded-lg text-sm",
+                        currentFolderId === item.id && "text-muted-foreground bg-accent font-medium"
+                      )}
+                    >
+                      {item.name}
+                    </Button>
+                    {index < breadcrumbs.length - 1 && (
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+          </nav>
+        )}
+
+        {/* 内容区域 */}
+        {isSearching ? (
+          <div className="space-y-6">
+            {/* 搜索加载状态 */}
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {/* 搜索结果显示 */}
+            {searchResults.length > 0 ? (
+              <div className="space-y-5">
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  搜索结果
+                  <span className="text-sm font-normal text-muted-foreground">({totalResults})</span>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-5">
+                  {searchResults.map((bookmark) => (
+                    <BookmarkCard
+                      key={bookmark.id}
+                      title={bookmark.title}
+                      url={bookmark.url}
+                      description={bookmark.description}
+                      icon={bookmark.icon}
+                      isFeatured={bookmark.isFeatured}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : inputValue ? (
+              <div className="text-center text-muted-foreground py-16">
+                <p className="text-base">未找到相关结果</p>
+                <p className="text-sm mt-1 opacity-60">请尝试其他关键词</p>
+              </div>
+            ) : (
+              // 非搜索状态：分层显示
+              <>
+                {/* 子文件夹区域 */}
+                {subfolders.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="w-4 h-4 text-muted-foreground/60" />
+                      <h3 className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wide">
+                        文件夹
+                      </h3>
+                      <span className="text-xs text-muted-foreground/40 font-medium">
+                        {subfolders.length}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-5">
+                      {subfolders.map((subfolder) => (
+                        <FolderCard
+                          key={subfolder.id}
+                          name={subfolder.name}
+                          icon={subfolder.icon}
+                          bookmarkCount={subfolder.bookmarkCount}
+                          childFolderCount={subfolder.childFolderCount}
+                          isPrivate={subfolder.isPrivate}
+                          onClick={() => handleFolderNavigation(subfolder.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 书签区域 */}
+                {currentBookmarks.length > 0 && (
+                  <div className="space-y-4">
+                    {subfolders.length > 0 && (
+                      <div className="h-px bg-border/50 my-6" />
+                    )}
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wide">
+                        书签
+                      </h3>
+                      <span className="text-xs text-muted-foreground/40 font-medium">
+                        {currentBookmarks.length}{totalCount > currentBookmarks.length ? ` / ${totalCount}` : ''}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-5">
+                      {currentBookmarks.map((bookmark) => (
+                        <BookmarkCard
+                          key={bookmark.id}
+                          title={bookmark.title}
+                          url={bookmark.url}
+                          description={bookmark.description}
+                          icon={bookmark.icon}
+                          isFeatured={bookmark.isFeatured}
+                        />
+                      ))}
+                    </div>
+                    {/* 加载更多按钮 */}
+                    {hasMore && (
+                      <div className="flex justify-center pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={loadMoreBookmarks}
+                          disabled={loadingMore}
+                          className="min-w-[160px]"
+                        >
+                          {loadingMore ? "加载中..." : "加载更多"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 空状态 */}
+                {subfolders.length === 0 && currentBookmarks.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                    <FolderOpen className="w-12 h-12 mb-4 opacity-20" />
+                    <p className="text-base font-medium">此文件夹为空</p>
+                    <p className="text-sm mt-1 opacity-50">还没有添加任何书签</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 分页 */}
+        {searchResults.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-center mt-6">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="rounded-lg"
+            >
+              上一页
+            </Button>
+            <span className="mx-4 text-sm text-muted-foreground">
+              第 {currentPage} / {totalPages} 页
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="rounded-lg"
+            >
+              下一页
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   }
 
+  // PasswordDialog 始终渲染，不受 loading/accessDenied/content 状态影响
   return (
-    <div className="px-8 pb-8 space-y-8">
-      {/* 面包屑导航 */}
-      {currentFolderId && !searchResults.length && !inputValue && (
-        <nav className="flex items-center space-x-1 py-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleFolderNavigation(null)}
-            className={cn(
-              "hover:bg-accent px-2 h-8 rounded-lg text-sm font-medium",
-              !currentFolderId && "bg-accent"
-            )}
-          >
-            {collectionName}
-          </Button>
-          {breadcrumbs.length > 0 && (
-            <>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-              {breadcrumbs.map((item, index) => (
-                <div key={item.id} className="flex items-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFolderNavigation(item.id)}
-                    className={cn(
-                      "hover:text-muted-foreground hover:bg-accent px-2 h-8 rounded-lg text-sm",
-                      currentFolderId === item.id && "text-muted-foreground bg-accent font-medium"
-                    )}
-                  >
-                    {item.name}
-                  </Button>
-                  {index < breadcrumbs.length - 1 && (
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-                  )}
-                </div>
-              ))}
-            </>
-          )}
-        </nav>
-      )}
-
-      {/* 内容区域 */}
-      {isSearching ? (
-        <div className="space-y-6">
-          {/* 搜索加载状态 */}
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {/* 搜索结果显示 */}
-          {searchResults.length > 0 ? (
-            <div className="space-y-5">
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                搜索结果
-                <span className="text-sm font-normal text-muted-foreground">({totalResults})</span>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-                {searchResults.map((bookmark) => (
-                  <BookmarkCard
-                    key={bookmark.id}
-                    title={bookmark.title}
-                    url={bookmark.url}
-                    description={bookmark.description}
-                    icon={bookmark.icon}
-                    isFeatured={bookmark.isFeatured}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : inputValue ? (
-            <div className="text-center text-muted-foreground py-16">
-              <p className="text-base">未找到相关结果</p>
-              <p className="text-sm mt-1 opacity-60">请尝试其他关键词</p>
-            </div>
-          ) : (
-            // 非搜索状态：分层显示
-            <>
-              {/* 子文件夹区域 */}
-              {subfolders.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4 text-muted-foreground/60" />
-                    <h3 className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wide">
-                      文件夹
-                    </h3>
-                    <span className="text-xs text-muted-foreground/40 font-medium">
-                      {subfolders.length}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-5">
-                    {subfolders.map((subfolder) => (
-                      <FolderCard
-                        key={subfolder.id}
-                        name={subfolder.name}
-                        icon={subfolder.icon}
-                        bookmarkCount={subfolder.bookmarkCount}
-                        childFolderCount={subfolder.childFolderCount}
-                        isPrivate={subfolder.isPrivate}
-                        onClick={() => handleFolderNavigation(subfolder.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 书签区域 */}
-              {currentBookmarks.length > 0 && (
-                <div className="space-y-4">
-                  {subfolders.length > 0 && (
-                    <div className="h-px bg-border/50 my-6" />
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-                    {currentBookmarks.map((bookmark) => (
-                      <BookmarkCard
-                        key={bookmark.id}
-                        title={bookmark.title}
-                        url={bookmark.url}
-                        description={bookmark.description}
-                        icon={bookmark.icon}
-                        isFeatured={bookmark.isFeatured}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 空状态 */}
-              {subfolders.length === 0 && currentBookmarks.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                  <FolderOpen className="w-12 h-12 mb-4 opacity-20" />
-                  <p className="text-base font-medium">此文件夹为空</p>
-                  <p className="text-sm mt-1 opacity-50">还没有添加任何书签</p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* 分页 */}
-      {searchResults.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-center mt-6">
-          <Button
-            variant="outline"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="rounded-lg"
-          >
-            上一页
-          </Button>
-          <span className="mx-4 text-sm text-muted-foreground">
-            第 {currentPage} / {totalPages} 页
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="rounded-lg"
-          >
-            下一页
-          </Button>
-        </div>
-      )}
-
-      {/* 密码验证弹窗 */}
+    <>
+      {content}
       <PasswordDialog
         folderName={passwordFolderName}
         open={passwordDialogOpen}
@@ -630,6 +704,6 @@ export function BookmarkGrid({
         onVerify={handlePasswordVerify}
         onCancel={handlePasswordCancel}
       />
-    </div>
+    </>
   );
 }

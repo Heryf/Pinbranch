@@ -162,6 +162,8 @@ function SearchParamsComponent() {
                 currentFolderId={null}
                 onCollectionChange={handleCollectionChange}
                 onFolderSelect={handleFolderSelect}
+                collections={collections}
+                collectionsLoading={isLoading}
               />
               <div className="flex flex-1 flex-col">
                 <Header
@@ -187,7 +189,11 @@ function SearchParamsComponent() {
                     </div>
 
                     {/* 合集网格 */}
-                    <CollectionGrid onSelect={handleCollectionSelectBySlug} />
+                    <CollectionGrid
+                      onSelect={handleCollectionSelectBySlug}
+                      collections={collections}
+                      loading={isLoading}
+                    />
                   </div>
                 </main>
                 <Footer />
@@ -202,6 +208,8 @@ function SearchParamsComponent() {
                 currentFolderId={currentFolderId}
                 onCollectionChange={handleCollectionChange}
                 onFolderSelect={handleFolderSelect}
+                collections={collections}
+                collectionsLoading={isLoading}
               />
               <div className="flex flex-1 flex-col">
                 <div className="flex items-center justify-between px-4 pt-2">
