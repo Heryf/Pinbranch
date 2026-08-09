@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 interface Collection {
   id: string;
   name: string;
-  slug: string;
+  slug: string | null;
   description?: string;
   icon?: string;
   isPublic: boolean;
@@ -39,9 +39,9 @@ const CollectionGridCard = memo(function CollectionGridCard({
 
   const handleClick = () => {
     if (onSelect) {
-      onSelect(collection.slug);
+      onSelect(collection.slug || '');
     } else {
-      router.push(`/?collection=${collection.slug}`);
+      router.push(`/?collection=${collection.slug || ''}`);
     }
   };
 
