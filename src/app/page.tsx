@@ -72,9 +72,13 @@ function SearchParamsComponent() {
             setCollectionName(currentCollection.name);
           }
         } else {
-          // 没有选择合集时，清空状态，进入首页书签集视图
-          setSelectedCollectionId("");
-          setCollectionName("");
+          // 没有选择合集时，默认选择第一个合集
+          const defaultCollection = data[0];
+          if (defaultCollection?.slug) {
+            router.replace(`${pathname}?collection=${defaultCollection.slug}`);
+          }
+          setSelectedCollectionId(defaultCollection?.id ?? "");
+          setCollectionName(defaultCollection?.name ?? "");
         }
       } catch (error) {
         console.error("获取 collections 失败:", error);

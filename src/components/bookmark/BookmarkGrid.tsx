@@ -588,7 +588,7 @@ export function BookmarkGrid({
                     <div className="flex items-center gap-2">
                       <FolderOpen className="w-4 h-4 text-muted-foreground/60" />
                       <h3 className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wide">
-                        文件夹
+                        书签夹
                       </h3>
                       <span className="text-xs text-muted-foreground/40 font-medium">
                         {subfolders.length}
@@ -656,7 +656,7 @@ export function BookmarkGrid({
                 {subfolders.length === 0 && currentBookmarks.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                     <FolderOpen className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="text-base font-medium">此文件夹为空</p>
+                    <p className="text-base font-medium">此书签夹为空</p>
                     <p className="text-sm mt-1 opacity-50">还没有添加任何书签</p>
                   </div>
                 )}

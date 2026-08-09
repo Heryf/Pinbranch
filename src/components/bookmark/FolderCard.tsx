@@ -28,9 +28,9 @@ function FolderCardInner({
   const getCountText = () => {
     const parts = [];
     if (isPrivate) parts.push("已上锁");
-    if (childFolderCount > 0) parts.push(`${childFolderCount} 个文件夹`);
+    if (childFolderCount > 0) parts.push(`${childFolderCount} 个书签夹`);
     if (bookmarkCount > 0) parts.push(`${bookmarkCount} 个书签`);
-    if (parts.length === 0) return "空文件夹";
+    if (parts.length === 0) return "空书签夹";
     return parts.join(" · ");
   };
 

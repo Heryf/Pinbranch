@@ -23,7 +23,7 @@ interface Collection {
   id: string;
   name: string;
   isPublic: boolean;
-  slug: string;
+  slug: string | null;
   sortOrder: number;
 }
 
@@ -247,10 +247,10 @@ export function WebsiteSidebar({
   // 点击合集：右侧切换到该合集根目录
   const handleCollectionSelect = (collection: Collection) => {
     if (onCollectionChange) {
-      onCollectionChange(collection.id, collection.slug);
+      onCollectionChange(collection.id, collection.slug || '');
     } else {
       const currentSearchParams = new URLSearchParams();
-      currentSearchParams.set("collection", collection.slug);
+      currentSearchParams.set("collection", collection.slug || '');
       router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
     }
   };
@@ -261,7 +261,7 @@ export function WebsiteSidebar({
     if (!collection) return;
 
     const currentSearchParams = new URLSearchParams();
-    currentSearchParams.set("collection", collection.slug);
+    currentSearchParams.set("collection", collection.slug || '');
     currentSearchParams.set("folderId", folderId);
     router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
   };
