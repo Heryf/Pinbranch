@@ -68,11 +68,12 @@ export default function BookmarksPage() {
     subfolders: []
   });
   const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<"sortOrder" | "createdAt" | "updatedAt">("sortOrder");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortField, setSortField] = useState<"createdAt" | "updatedAt">("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>();
   const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string; parentId: string | null }>>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [allFolders, setAllFolders] = useState<Folder[]>([]);
   const [isNavigating, setIsNavigating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
@@ -97,7 +98,8 @@ export default function BookmarksPage() {
         setSelectedCollectionId(collectionId);
         Promise.all([
           fetchBookmarks(collectionId),
-          fetchFolders(collectionId)
+          fetchFolders(collectionId),
+          fetchAllFolders(collectionId)
         ]);
       } else if (data.length > 0) {
         const firstCollectionId = data[0].id;
@@ -105,7 +107,8 @@ export default function BookmarksPage() {
         router.push(`/admin/bookmarks?collection=${firstCollectionId}`);
         Promise.all([
           fetchBookmarks(firstCollectionId),
-          fetchFolders(firstCollectionId)
+          fetchFolders(firstCollectionId),
+          fetchAllFolders(firstCollectionId)
         ]);
       }
     } catch (error) {
@@ -163,11 +166,20 @@ export default function BookmarksPage() {
     }
   };
 
-  const handleSortChange = async (field: "sortOrder" | "createdAt" | "updatedAt", order: "asc" | "desc") => {
-    console.log("handleSortChange called with:", { field, order });
+  const fetchAllFolders = async (collectionId: string = selectedCollectionId) => {
+    try {
+      const response = await fetch(`/api/collections/${collectionId}/folders?all=true`);
+      const data = await response.json();
+      setAllFolders(data);
+    } catch (error) {
+      console.error("Get all folders failed:", error);
+    }
+  };
+
+  const handleSortChange = async (field: "createdAt" | "updatedAt", order: "asc" | "desc") => {
     setSortField(field);
     setSortOrder(order);
-
+    
     if (selectedCollectionId) {
       console.log("Fetching bookmarks with new sort:", { field, order, selectedCollectionId });
       await fetchBookmarks(selectedCollectionId);
@@ -270,7 +282,8 @@ export default function BookmarksPage() {
       try {
         await Promise.all([
           fetchBookmarks(selectedCollectionId),
-          fetchFolders(selectedCollectionId)
+          fetchFolders(selectedCollectionId),
+          fetchAllFolders(selectedCollectionId)
         ]);
       } catch (error) {
         console.error("Failed to refresh data:", error);
@@ -342,7 +355,8 @@ export default function BookmarksPage() {
               router.push(`/admin/bookmarks?collection=${value}`);
               Promise.all([
                 fetchBookmarks(value),
-                fetchFolders(value)
+                fetchFolders(value),
+                fetchAllFolders(value)
               ]);
             }}
           >
@@ -379,7 +393,7 @@ export default function BookmarksPage() {
         </div>
       </AdminHeader>
 
-      <main className="flex-1 overflow-y-auto p-6 bg-background">
+      <main className="flex-1 overflow-y-auto p-8 bg-card/50">
         {loading ? (
           <LoadingSkeleton />
         ) : collections.length === 0 ? (
@@ -477,6 +491,7 @@ export default function BookmarksPage() {
               <BookmarkDataTable 
                 collectionId={selectedCollectionId}
                 folders={folders}
+                allFolders={allFolders}
                 bookmarks={bookmarks}
                 currentFolderId={currentFolderId}
                 onFolderClick={handleFolderClick}

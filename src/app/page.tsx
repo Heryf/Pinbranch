@@ -13,6 +13,7 @@ import { CollectionGrid } from "@/components/collection/CollectionGrid";
 import { Library, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collection } from "@prisma/client";
+import { useSettings } from "@/hooks/use-settings";
 
 // 懒加载 GetStarted，减小首屏 JS 体积
 const LazyGetStarted = lazy(() =>
@@ -40,7 +41,9 @@ function SearchParamsComponent() {
 
   // collections 数据预加载（首次挂载执行一次，永久缓存到 state）
   const collectionsLoadedRef = useRef(false);
-  const settingsLoadedRef = useRef(false);
+
+  // 使用 useSettings hook 复用 sessionStorage 缓存（减少 API 请求）
+  const { settings: featureSettings } = useSettings("feature");
 
   // 加载 collections（仅首次挂载执行一次）
   useEffect(() => {
@@ -53,6 +56,13 @@ function SearchParamsComponent() {
         const response = await fetch("/api/collections?publicOnly=true");
         const data: Collection[] = await response.json();
         setCollections(data);
+
+        // 首屏默认显示第一个合集（不自动展开下级书签夹，由 sidebar 控制）
+        if (data.length > 0) {
+          setSelectedCollectionId(data[0].id);
+          setCollectionName(data[0].name || "");
+          setViewMode("collection");
+        }
       } catch (error) {
         console.error("获取 collections 失败:", error);
       } finally {
@@ -62,22 +72,12 @@ function SearchParamsComponent() {
     fetchCollectionsOnce();
   }, []);
 
-  // 加载搜索设置（仅首次）
+  // 从 settings 提取搜索开关（useSettings 自带缓存，不重复请求）
   useEffect(() => {
-    if (settingsLoadedRef.current) return;
-    settingsLoadedRef.current = true;
-
-    const loadSearchSetting = async () => {
-      try {
-        const response = await fetch('/api/settings?group=feature');
-        const data = await response.json();
-        setEnableSearch(data.enableSearch === 'true' || data.enableSearch === true);
-      } catch (error) {
-        console.error('Load search settings failed:', error);
-      }
-    };
-    loadSearchSetting();
-  }, []);
+    if (featureSettings?.enableSearch !== undefined) {
+      setEnableSearch(featureSettings.enableSearch === 'true' || featureSettings.enableSearch === true);
+    }
+  }, [featureSettings]);
 
   // 返回首页书签集：纯 setState，不修改 URL
   const goHome = useCallback(() => {
@@ -108,10 +108,18 @@ function SearchParamsComponent() {
     setCurrentFolderId(null);
   }, [collections]);
 
-  // 切换文件夹：纯 setState，秒级切换
-  const handleFolderSelect = useCallback((id: string | null, _collectionId?: string) => {
+  // 切换文件夹：纯 setState，秒级切换。若跨合集则先切换合集
+  const handleFolderSelect = useCallback((id: string | null, collectionId?: string) => {
+    if (collectionId && collectionId !== selectedCollectionId) {
+      const collection = collections.find(c => c.id === collectionId);
+      if (collection) {
+        setViewMode("collection");
+        setSelectedCollectionId(collectionId);
+        setCollectionName(collection.name || "");
+      }
+    }
     setCurrentFolderId(id);
-  }, []);
+  }, [collections, selectedCollectionId]);
 
   // Header 在添加书签后，切换到目标文件夹：纯 setState
   const handleNavigateToFolder = useCallback((folderId: string | null) => {
@@ -167,7 +175,7 @@ function SearchParamsComponent() {
                           <Library className="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <h1 className="text-xl font-bold text-foreground">首页书签集</h1>
+                          <h1 className="text-xl font-bold text-foreground">书签集</h1>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             共 {collections.length} 个公开合集
                           </p>
@@ -208,7 +216,7 @@ function SearchParamsComponent() {
                     className="gap-1.5 text-muted-foreground hover:text-foreground"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    <span>返回首页书签集</span>
+                    <span>返回书签集</span>
                   </Button>
                 </div>
                 <Header

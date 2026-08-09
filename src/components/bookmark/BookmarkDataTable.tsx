@@ -2,7 +2,19 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Star, Folder, ArrowUpDown, ExternalLink } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  MoreHorizontal,
+  Star,
+  ExternalLink,
+  Folder,
+  ChevronRight,
+  ArrowUpDown,
+  Trash2,
+  Move,
+  X,
+  Check,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -21,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -61,6 +80,7 @@ interface Folder {
 interface BookmarkDataTableProps {
   collectionId: string;
   folders: Folder[];
+  allFolders: Folder[];
   bookmarks: {
     currentBookmarks: Bookmark[];
     subfolders: any[];
@@ -70,9 +90,9 @@ interface BookmarkDataTableProps {
   onBookmarksChange: () => void;
   loading?: boolean;
   isNavigating?: boolean;
-  sortField: "sortOrder" | "createdAt" | "updatedAt";
+  sortField: "createdAt" | "updatedAt";
   sortOrder: "asc" | "desc";
-  onSortChange: (field: "sortOrder" | "createdAt" | "updatedAt", order: "asc" | "desc") => void;
+  onSortChange: (field: "createdAt" | "updatedAt", order: "asc" | "desc") => void;
 }
 
 type TableItem = {
@@ -83,18 +103,21 @@ type TableItem = {
   icon?: string;
   description?: string;
   isFeatured?: boolean;
-  sortOrder?: number;
   createdAt: string;
   updatedAt: string;
   folder?: {
     name: string;
   };
+  viewCount?: number;
   collectionId: string;
 };
+
+type BatchStatus = { type: "success" | "error"; message: string } | null;
 
 export function BookmarkDataTable({
   collectionId,
   folders = [],
+  allFolders = [],
   bookmarks = { currentBookmarks: [], subfolders: [] },
   currentFolderId,
   onFolderClick,
@@ -109,20 +132,27 @@ export function BookmarkDataTable({
   const safeBookmarks = Array.isArray(currentBookmarks) ? currentBookmarks : [];
   const safeFolders = Array.isArray(folders) ? folders : [];
 
-  const tableData = [
-    ...safeFolders.map(folder => ({
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchStatus, setBatchStatus] = useState<BatchStatus>(null);
+  const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
+  const [isBatchMoveOpen, setIsBatchMoveOpen] = useState(false);
+  const [targetFolderId, setTargetFolderId] = useState<string>("root");
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
+
+  const tableData: TableItem[] = [
+    ...safeFolders.map((folder) => ({
       id: folder.id,
       type: "folder" as const,
       title: folder.name,
       name: folder.name,
-      sortOrder: folder.sortOrder ?? 0,
+      sortOrder: folder.sortOrder,
       parentId: folder.parentId,
       icon: folder.icon,
       createdAt: folder.createdAt,
       updatedAt: folder.updatedAt,
-      collectionId
+      collectionId,
     })),
-    ...safeBookmarks.map(bookmark => ({
+    ...safeBookmarks.map((bookmark) => ({
       id: bookmark.id,
       type: "bookmark" as const,
       title: bookmark.title,
@@ -130,13 +160,104 @@ export function BookmarkDataTable({
       icon: bookmark.icon,
       description: bookmark.description,
       isFeatured: bookmark.isFeatured,
-      sortOrder: bookmark.sortOrder ?? 0,
       createdAt: bookmark.createdAt,
       updatedAt: bookmark.updatedAt,
       viewCount: bookmark.viewCount,
-      collectionId: bookmark.collectionId
-    }))
+      collectionId: bookmark.collectionId,
+    })),
   ];
+
+  const bookmarkItems = tableData.filter((item) => item.type === "bookmark");
+  const selectedBookmarkIds = Array.from(selectedIds).filter((id) =>
+    bookmarkItems.some((item) => item.id === id)
+  );
+  const isAllSelected =
+    bookmarkItems.length > 0 && selectedBookmarkIds.length === bookmarkItems.length;
+  const isPartialSelected =
+    selectedBookmarkIds.length > 0 && selectedBookmarkIds.length < bookmarkItems.length;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      const allIds = new Set(bookmarkItems.map((item) => item.id));
+      setSelectedIds(allIds);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedBookmarkIds.length === 0) return;
+    setIsBatchLoading(true);
+    try {
+      const response = await fetch("/api/bookmarks/batch", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedBookmarkIds }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Batch delete failed");
+      }
+      setBatchStatus({ type: "success", message: `Successfully deleted ${data.count} bookmarks` });
+      setSelectedIds(new Set());
+      onBookmarksChange();
+    } catch (error) {
+      setBatchStatus({
+        type: "error",
+        message: `Batch delete failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    } finally {
+      setIsBatchLoading(false);
+      setIsBatchDeleteOpen(false);
+    }
+  };
+
+  const handleBatchMove = async () => {
+    if (selectedBookmarkIds.length === 0) return;
+    setIsBatchLoading(true);
+    try {
+      const response = await fetch("/api/bookmarks/batch", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedBookmarkIds,
+          folderId: targetFolderId === "root" ? null : targetFolderId,
+          collectionId,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Batch move failed");
+      }
+      setBatchStatus({ type: "success", message: `Successfully moved ${data.count} bookmarks` });
+      setSelectedIds(new Set());
+      onBookmarksChange();
+    } catch (error) {
+      setBatchStatus({
+        type: "error",
+        message: `Batch move failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    } finally {
+      setIsBatchLoading(false);
+      setIsBatchMoveOpen(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -169,170 +290,250 @@ export function BookmarkDataTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[50px] text-center">类型</TableHead>
-                <TableHead className="w-[60px] text-center">序号</TableHead>
-                <TableHead className="w-[200px]">标题</TableHead>
-                <TableHead className="w-[80px] text-center">图标</TableHead>
-                <TableHead className="w-[300px] max-w-[300px]">描述</TableHead>
-                <TableHead className="w-[80px] text-center">精选</TableHead>
-                <TableHead className="w-[100px] text-center">访问量</TableHead>
-                <TableHead className="w-[120px]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-left font-medium"
-                    onClick={() => {
-                      const newOrder = sortField === "sortOrder" && sortOrder === "asc" ? "desc" : "asc";
-                      onSortChange("sortOrder", newOrder);
-                    }}
-                  >
-                    序号排序
-                    <ArrowUpDown className="ml-1 h-3 w-3" />
-                  </Button>
-                </TableHead>
-                <TableHead className="w-[120px]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-left font-medium"
-                    onClick={() => {
-                      const newOrder = sortField === "createdAt" && sortOrder === "asc" ? "desc" : "asc";
-                      onSortChange("createdAt", newOrder);
-                    }}
-                  >
-                    创建时间
-                    <ArrowUpDown className="ml-1 h-3 w-3" />
-                  </Button>
-                </TableHead>
-                <TableHead className="w-[120px]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-left font-medium"
-                    onClick={() => {
-                      const newOrder = sortField === "updatedAt" && sortOrder === "asc" ? "desc" : "asc";
-                      onSortChange("updatedAt", newOrder);
-                    }}
-                  >
-                    更新时间
-                    <ArrowUpDown className="ml-1 h-3 w-3" />
-                  </Button>
-                </TableHead>
-                <TableHead className="w-[80px] text-center">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tableData.map((item) => (
-                <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
-                  {/* 类型 */}
-                  <TableCell className="text-center">
-                    {item.type === "folder" ? (
-                      <Folder className="w-4 h-4 mx-auto text-primary" />
-                    ) : (
-                      <ExternalLink className="w-4 h-4 mx-auto text-muted-foreground" />
+      {/* 状态反馈 */}
+      {batchStatus && (
+        <div
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+            batchStatus.type === "success"
+              ? "bg-green-500/10 text-green-600 border border-green-500/20"
+              : "bg-red-500/10 text-red-600 border border-red-500/20"
+          )}
+        >
+          {batchStatus.type === "success" ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <X className="w-4 h-4" />
+          )}
+          <span>{batchStatus.message}</span>
+          <button
+            onClick={() => setBatchStatus(null)}
+            className="ml-auto hover:opacity-70"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* 批量操作工具栏 */}
+      {selectedBookmarkIds.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/10">
+          <span className="text-sm font-medium text-primary">
+            {selectedBookmarkIds.length} selected
+          </span>
+          <div className="h-4 w-px bg-primary/20" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={clearSelection}
+          >
+            <X className="w-3.5 h-3.5" />
+            Cancel
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            onClick={() => setIsBatchMoveOpen(true)}
+          >
+            <Move className="w-3.5 h-3.5" />
+            Batch Move
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={() => setIsBatchDeleteOpen(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Batch Delete
+          </Button>
+        </div>
+      )}
+
+      <div className="rounded-lg border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={isAllSelected}
+                  className={cn(isPartialSelected && "bg-primary/50")}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all bookmarks"
+                />
+              </TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Icon</TableHead>
+              <TableHead>Icon URL</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>View Count</TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  className="w-full text-left font-medium"
+                  onClick={() => {
+                    const newOrder = sortField === "createdAt" && sortOrder === "asc" ? "desc" : "asc";
+                    onSortChange("createdAt", newOrder);
+                  }}
+                >
+                  Created At
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  className="w-full text-left font-medium"
+                  onClick={() => {
+                    const newOrder = sortField === "updatedAt" && sortOrder === "asc" ? "desc" : "asc";
+                    onSortChange("updatedAt", newOrder);
+                  }}
+                >
+                  Updated At
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tableData.map((item) => {
+              const isSelected = selectedIds.has(item.id);
+              const isBookmark = item.type === "bookmark";
+              return (
+                <TableRow
+                  key={item.id}
+                  className={cn(
+                    isSelected && "bg-primary/5"
+                  )}
+                >
+                  <TableCell className="w-10">
+                    {isBookmark && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(item.id)}
+                        aria-label={`Select ${item.title}`}
+                      />
                     )}
                   </TableCell>
-
-                  {/* 序号 */}
-                  <TableCell className="text-center">
-                    <span className={cn(
-                      "inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded text-xs font-mono",
-                      item.type === "folder"
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-primary/10 text-primary"
-                    )}>
-                      {item.sortOrder ?? 0}
-                    </span>
-                  </TableCell>
-
-                  {/* 标题 */}
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {item.type === "folder" ? (
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="p-0 h-auto hover:bg-transparent font-medium text-foreground"
+                          className="p-0 hover:bg-transparent"
                           onClick={() => onFolderClick(item.id)}
                         >
+                          <Folder className="w-4 h-4 mr-2" />
                           {item.title}
                         </Button>
                       ) : (
-                        <span className="font-medium text-foreground truncate max-w-[180px] block">
-                          {item.title}
-                        </span>
+                        <>
+                          {item.isFeatured && <Star className="w-4 h-4 text-yellow-400" />}
+                          <span>{item.title}</span>
+                        </>
                       )}
                     </div>
                   </TableCell>
-
-                  {/* 图标 */}
-                  <TableCell className="text-center">
-                    {item.type === "bookmark" && item.icon ? (
-                      <img
-                        src={item.icon}
-                        alt="icon"
-                        className="w-6 h-6 rounded object-cover border border-border mx-auto"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none'
-                        }}
-                      />
-                    ) : (
-                      <span className="text-muted-foreground text-xs">-</span>
-                    )}
-                  </TableCell>
-
-                  {/* 描述 - 限制宽度 */}
                   <TableCell>
-                    <span className="text-sm text-muted-foreground truncate max-w-[280px] block" title={item.type === "bookmark" ? item.description || '' : ''}>
-                      {item.type === "bookmark" ? (item.description || '-') : '-'}
-                    </span>
-                  </TableCell>
-
-                  {/* 精选 */}
-                  <TableCell className="text-center">
-                    {item.type === "bookmark" && item.isFeatured ? (
-                      <Star className="w-4 h-4 text-yellow-400 mx-auto fill-yellow-400" />
-                    ) : (
-                      <span className="text-muted-foreground text-xs">-</span>
+                    {item.type === "bookmark" && item.icon && (
+                      <div className="flex items-center justify-center">
+                        <img
+                          src={item.icon}
+                          alt="icon"
+                          className="w-8 h-8 rounded-full object-cover border border-border"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      </div>
                     )}
                   </TableCell>
-
-                  {/* 访问量 */}
-                  <TableCell className="text-center">
+                  <TableCell>
                     <span className="text-sm text-muted-foreground">
-                      {item.type === "bookmark" ? item.viewCount || 0 : '-'}
+                      {item.type === "bookmark" ? item.icon || "-" : "-"}
                     </span>
                   </TableCell>
-
-                  {/* 创建时间 */}
                   <TableCell>
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      {new Date(item.createdAt).toLocaleDateString('zh-CN')}
-                    </span>
+                    {item.type === "bookmark" ? item.description || "-" : "-"}
                   </TableCell>
-
-                  {/* 更新时间 */}
                   <TableCell>
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      {new Date(item.updatedAt).toLocaleDateString('zh-CN')}
-                    </span>
+                    {item.type === "bookmark" ? item.viewCount || 0 : "-"}
                   </TableCell>
-
-                  {/* 操作 */}
-                  <TableCell className="text-center">
+                  <TableCell>
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(item.updatedAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
                     <TableActions item={item} onUpdate={onBookmarksChange} />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
+
+      {/* 批量删除确认对话框 */}
+      <Dialog open={isBatchDeleteOpen} onOpenChange={setIsBatchDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Batch Delete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedBookmarkIds.length} bookmarks? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBatchDeleteOpen(false)} disabled={isBatchLoading}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBatchDelete} disabled={isBatchLoading}>
+              {isBatchLoading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量移动对话框 */}
+      <Dialog open={isBatchMoveOpen} onOpenChange={setIsBatchMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Batch Move Bookmarks</DialogTitle>
+            <DialogDescription>
+              Select target folder for {selectedBookmarkIds.length} bookmarks
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={targetFolderId} onValueChange={setTargetFolderId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select target folder" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="root">Root Directory</SelectItem>
+                {allFolders
+                  .filter((f) => f.id !== currentFolderId)
+                  .map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBatchMoveOpen(false)} disabled={isBatchLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleBatchMove} disabled={isBatchLoading}>
+              {isBatchLoading ? "Moving..." : "Move"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -348,7 +549,7 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
         method: "DELETE",
       });
 
-      let errorMessage = `删除${item.type === "folder" ? "文件夹" : "书签"}失败`;
+      let errorMessage = `Delete ${item.type === "folder" ? "folder" : "bookmark"} failed`;
 
       if (!response.ok) {
         try {
@@ -363,8 +564,8 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
       onUpdate();
       setIsDeleteDialogOpen(false);
     } catch (error) {
-      console.error("删除失败:", error);
-      alert(`删除失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      console.error("Delete failed:", error);
+      alert(`Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 
@@ -372,19 +573,14 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon">
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-            编辑
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => setIsDeleteDialogOpen(true)}
-            className="text-red-600"
-          >
-            删除
+          <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>Edit</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-red-600">
+            Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -411,23 +607,19 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>删除{item.type === "folder" ? "文件夹" : "书签"}</DialogTitle>
+            <DialogTitle>
+              Delete {item.type === "folder" ? "folder" : "bookmark"}
+            </DialogTitle>
             <DialogDescription>
-              确定要删除 "{item.title}" 吗？此操作无法撤销。
+              Are you sure you want to delete &quot;{item.title}&quot; this {item.type === "folder" ? "folder" : "bookmark"}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              取消
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-            >
-              删除
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

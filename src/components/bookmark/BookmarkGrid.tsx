@@ -61,6 +61,8 @@ interface CacheEntry {
 const CACHE_PREFIX = 'pinbranch_grid_cache_';
 // 缓存有效期 5 分钟
 const CACHE_TTL = 5 * 60 * 1000;
+// 后台刷新冷却期 2 分钟（缓存未过期但超过此时间才后台刷新）
+const SWR_COOLDOWN = 2 * 60 * 1000;
 
 // 从 sessionStorage 读取缓存
 const getCache = (key: string): CacheEntry | null => {
@@ -173,6 +175,13 @@ export function BookmarkGrid({
       setCurrentDataPage(1);
       setAccessDenied(false);
       setLoading(false);
+
+      // 后台刷新冷却期：缓存够新时跳过后台请求，减少 API 调用
+      const cacheAge = Date.now() - cached.ts;
+      if (cacheAge < SWR_COOLDOWN) {
+        return;
+      }
+
       // 后台静默刷新（不显示 loading）
       try {
         const password = folderId ? getVerifiedPassword(folderId) : null;

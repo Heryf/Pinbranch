@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { useSettingImages } from "@/hooks/useSettingImages";
+import { useSettings } from "@/hooks/use-settings";
 import { Skeleton } from "../ui/skeleton";
 
 const menuItems = [
@@ -78,14 +79,16 @@ export function AdminSidebar() {
   };
 
   const { images, isLoading, error } = useSettingImages('logoUrl');
+  const { settings } = useSettings("basic");
+  const websiteName = settings?.websiteName || "PinTree";
 
   return (
     <Sidebar>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild className="hover:bg-transparent rounded-none pr-0">
-                <Link href="/" className="pl-0 flex items-center gap-2 justify-start rounded-none pr-0 h-[44px]">
+              <SidebarMenuButton size="lg" asChild className="hover:bg-transparent rounded-lg pr-0">
+                <Link href="/" className="pl-2 flex items-center gap-2.5 justify-center rounded-lg pr-0 w-full h-[44px]">
                 {isLoading ? (
                   <Skeleton className="w-8 h-8 rounded-lg" />
                 ) : (
@@ -97,6 +100,9 @@ export function AdminSidebar() {
                     className="rounded-lg object-contain block"
                   />
                 )}
+                <span className="text-base font-bold text-foreground tracking-tight leading-none flex items-center justify-center">
+                  {websiteName}
+                </span>
                 </Link>
               </SidebarMenuButton>
           </SidebarMenuItem>

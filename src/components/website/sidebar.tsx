@@ -72,10 +72,6 @@ export function WebsiteSidebar({
   useEffect(() => {
     if (propCollections) {
       setLocalLoading(false);
-      // 默认展开第一个合集
-      if (propCollections.length > 0) {
-        setExpandedCollections(new Set([propCollections[0].id]));
-      }
       return;
     }
     const fetchCollections = async () => {
@@ -92,10 +88,6 @@ export function WebsiteSidebar({
 
         const sorted = data.sort((a: Collection, b: Collection) => a.sortOrder - b.sortOrder);
         setLocalCollections(sorted);
-
-        if (sorted.length > 0) {
-          setExpandedCollections(new Set([sorted[0].id]));
-        }
       } catch (error) {
         console.error("Get bookmark collection failed:", error);
         setLocalCollections([]);
@@ -137,17 +129,6 @@ export function WebsiteSidebar({
       fetchAllFolders();
     }
   }, [collections]);
-
-  // 当选中合集变化时，自动展开该合集
-  useEffect(() => {
-    if (selectedCollectionId) {
-      setExpandedCollections((prev) => {
-        const next = new Set(prev);
-        next.add(selectedCollectionId);
-        return next;
-      });
-    }
-  }, [selectedCollectionId]);
 
   // 当当前文件夹变化时，展开其父文件夹
   useEffect(() => {
@@ -244,6 +225,12 @@ export function WebsiteSidebar({
 
   // 点击合集：右侧切换到该合集根目录（SPA 纯客户端切换，不修改 URL）
   const handleCollectionSelect = (collection: Collection) => {
+    // 主动展开被点击的合集文件夹树
+    setExpandedCollections((prev) => {
+      const next = new Set(prev);
+      next.add(collection.id);
+      return next;
+    });
     if (onCollectionChange) {
       onCollectionChange(collection.id, collection.slug);
     }
@@ -401,7 +388,7 @@ export function WebsiteSidebar({
 
       <SidebarContent className="flex-1 min-h-0 overflow-y-auto hide-scrollbar px-2 py-3">
         <SidebarGroup className="space-y-1">
-          {/* 首页书签集入口 - 固定在顶部 */}
+          {/* 书签集入口 - 固定在顶部 */}
           <SidebarMenu className="space-y-0.5">
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -431,7 +418,7 @@ export function WebsiteSidebar({
                         : "text-foreground/90"
                     )}
                   >
-                    首页书签集
+                    书签集
                   </span>
                   <span className="ml-auto text-[10px] text-muted-foreground/50 font-medium">
                     {collections.length}
