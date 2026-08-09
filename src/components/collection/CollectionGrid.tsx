@@ -10,13 +10,13 @@ interface Collection {
   id: string;
   name: string;
   slug: string | null;
-  description?: string;
-  icon?: string;
+  description?: string | null;
+  icon?: string | null;
   isPublic: boolean;
   sortOrder: number;
   totalBookmarks?: number;
   viewCount?: number;
-  viewStyle?: "list" | "card";
+  viewStyle?: string;
 }
 
 interface CollectionGridProps {
