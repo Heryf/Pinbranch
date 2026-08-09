@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, memo } from "react";
-import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Library, BookOpen, Lock, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,14 +33,12 @@ const CollectionGridCard = memo(function CollectionGridCard({
   collection: Collection;
   onSelect?: (slug: string) => void;
 }) {
-  const router = useRouter();
   const [imgError, setImgError] = useState(false);
 
   const handleClick = () => {
+    // 必须由 page.tsx 传入 onSelect，SPA 纯客户端切换，不修改 URL
     if (onSelect) {
       onSelect(collection.slug || '');
-    } else {
-      router.push(`/?collection=${collection.slug || ''}`);
     }
   };
 

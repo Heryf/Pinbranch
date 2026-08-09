@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense, lazy } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense, lazy, useRef } from "react";
 import { WebsiteSidebar } from "@/components/website/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { BookmarkGrid } from "@/components/bookmark/BookmarkGrid";
@@ -20,17 +19,17 @@ const LazyGetStarted = lazy(() =>
   import("@/components/website/get-started").then(m => ({ default: m.GetStarted }))
 );
 
-function SearchParamsComponent() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const collectionSlug = searchParams.get("collection");
+// 视图模式：home = 书签集首页；collection = 合集浏览
+type ViewMode = "home" | "collection";
 
+function SearchParamsComponent() {
+  // 视图模式与当前选中的合集/文件夹
+  const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [collectionName, setCollectionName] = useState<string>("");
   const [collections, setCollections] = useState<Collection[]>([]);
-  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // 全局搜索状态
@@ -39,59 +38,35 @@ function SearchParamsComponent() {
   const [currentEngine, setCurrentEngine] = useState("书签");
   const [enableSearch, setEnableSearch] = useState(true);
 
-  const routeToFolderInCollection = (collection: Collection, folderId?: string | null) => {
-    const currentSearchParams = new URLSearchParams(searchParams.toString());
-    collection?.slug ? currentSearchParams.set("collection", collection.slug) : currentSearchParams.delete("collection");
-    folderId ? currentSearchParams.set("folderId", folderId) : currentSearchParams.delete("folderId");
-    router.push(`${pathname}?${currentSearchParams.toString()}`);
-  }
+  // collections 数据预加载（首次挂载执行一次，永久缓存到 state）
+  const collectionsLoadedRef = useRef(false);
+  const settingsLoadedRef = useRef(false);
 
-  // 返回首页书签集（清空 query 参数）
-  const goHome = useCallback(() => {
-    router.push(pathname);
-  }, [pathname, router]);
-
+  // 加载 collections（仅首次挂载执行一次）
   useEffect(() => {
-    const folderId = searchParams.get("folderId");
-    setCurrentFolderId(folderId);
+    if (collectionsLoadedRef.current) return;
+    collectionsLoadedRef.current = true;
 
-    const fetchCollectionsAndSetDefault = async () => {
+    const fetchCollectionsOnce = async () => {
       try {
         setIsLoading(true);
         const response = await fetch("/api/collections?publicOnly=true");
-        const data = await response.json();
+        const data: Collection[] = await response.json();
         setCollections(data);
-
-        // set selected collection by slug
-        if (collectionSlug) {
-          const currentCollection = data.find(
-            (c: Collection) => c.slug === collectionSlug
-          );
-          if (currentCollection) {
-            setSelectedCollectionId(currentCollection.id);
-            setCollectionName(currentCollection.name);
-          }
-        } else {
-          // 没有选择合集时，默认选择第一个合集
-          const defaultCollection = data[0];
-          if (defaultCollection?.slug) {
-            router.replace(`${pathname}?collection=${defaultCollection.slug}`);
-          }
-          setSelectedCollectionId(defaultCollection?.id ?? "");
-          setCollectionName(defaultCollection?.name ?? "");
-        }
       } catch (error) {
         console.error("获取 collections 失败:", error);
       } finally {
         setIsLoading(false);
       }
     };
+    fetchCollectionsOnce();
+  }, []);
 
-    fetchCollectionsAndSetDefault();
-  }, [searchParams]);
-
-  // 加载搜索设置
+  // 加载搜索设置（仅首次）
   useEffect(() => {
+    if (settingsLoadedRef.current) return;
+    settingsLoadedRef.current = true;
+
     const loadSearchSetting = async () => {
       try {
         const response = await fetch('/api/settings?group=feature');
@@ -104,68 +79,76 @@ function SearchParamsComponent() {
     loadSearchSetting();
   }, []);
 
-  const handleCollectionChange = (id: string, slug?: string) => {
+  // 返回首页书签集：纯 setState，不修改 URL
+  const goHome = useCallback(() => {
+    setViewMode("home");
+    setSelectedCollectionId("");
+    setCollectionName("");
+    setCurrentFolderId(null);
+  }, []);
+
+  // 切换合集：纯 setState，不修改 URL，不重新 fetch
+  const handleCollectionChange = useCallback((id: string, _slug?: string | null) => {
     const collection = collections.find((c) => c.id === id);
     if (!collection) return;
 
+    setViewMode("collection");
     setSelectedCollectionId(id);
     setCollectionName(collection.name || "");
     setCurrentFolderId(null);
+  }, [collections]);
 
-    routeToFolderInCollection(collection);
-  };
-
+  // 通过 slug 切换合集（首页 CollectionGrid 调用）
   const handleCollectionSelectBySlug = useCallback((slug: string) => {
     const collection = collections.find(c => c.slug === slug);
     if (!collection) return;
+    setViewMode("collection");
     setSelectedCollectionId(collection.id);
     setCollectionName(collection.name || "");
     setCurrentFolderId(null);
-    routeToFolderInCollection(collection);
   }, [collections]);
 
-  const handleFolderSelect = (id: string | null) => {
-    const collection = collections.find((c) => c.id === selectedCollectionId);
-    if (!collection) return;
-
-    routeToFolderInCollection(collection, id);
+  // 切换文件夹：纯 setState，秒级切换
+  const handleFolderSelect = useCallback((id: string | null, _collectionId?: string) => {
     setCurrentFolderId(id);
-  };
+  }, []);
 
-  const refreshData = useCallback(async () => {
+  // Header 在添加书签后，切换到目标文件夹：纯 setState
+  const handleNavigateToFolder = useCallback((folderId: string | null) => {
+    setCurrentFolderId(folderId);
+  }, []);
+
+  const refreshData = useCallback(() => {
     if (selectedCollectionId) {
-      try {
-        setRefreshTrigger((prev) => prev + 1);
-      } catch (error) {
-        console.error("刷新数据失败:", error);
-      }
+      setRefreshTrigger((prev) => prev + 1);
     }
-  }, [selectedCollectionId, currentFolderId]);
+  }, [selectedCollectionId]);
 
-  const handleSearch = (query: string, scope: 'all' | 'current') => {
+  const handleSearch = useCallback((query: string, scope: 'all' | 'current') => {
     setSearchQuery(query);
     setSearchScope(scope);
-  };
+  }, []);
+
+  // 计算当前合集 slug（用于 BookmarkGrid 内部跳转）
+  const currentCollectionSlug = collections.find((c) => c.id === selectedCollectionId)?.slug || "";
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <div className="flex flex-1">
         <SidebarProvider>
-          {
-          isLoading && !collections.length ? (
+          {isLoading && !collections.length ? (
             <div className="flex flex-1 items-center justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          ) :
-          // 三种视图：首页书签集 / 合集浏览 / 没有合集时引导页
-          !collectionSlug ? (
-            // 首页书签集视图
+          ) : viewMode === "home" ? (
+            // 书签集首页视图
             <>
               <WebsiteSidebar
                 selectedCollectionId=""
                 currentFolderId={null}
                 onCollectionChange={handleCollectionChange}
                 onFolderSelect={handleFolderSelect}
+                onGoHome={goHome}
                 collections={collections}
                 collectionsLoading={isLoading}
               />
@@ -204,7 +187,7 @@ function SearchParamsComponent() {
               </div>
               <BackToTop />
             </>
-          ) : selectedCollectionId ? (
+          ) : (
             // 合集浏览视图
             <>
               <WebsiteSidebar
@@ -212,6 +195,7 @@ function SearchParamsComponent() {
                 currentFolderId={currentFolderId}
                 onCollectionChange={handleCollectionChange}
                 onFolderSelect={handleFolderSelect}
+                onGoHome={goHome}
                 collections={collections}
                 collectionsLoading={isLoading}
               />
@@ -231,6 +215,7 @@ function SearchParamsComponent() {
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}
                   onBookmarkAdded={refreshData}
+                  onNavigateToFolder={handleNavigateToFolder}
                 />
 
                 {/* 全局搜索栏 - 固定在 Header 下方，切换文件夹时不重复渲染 */}
@@ -253,27 +238,18 @@ function SearchParamsComponent() {
                     collectionId={selectedCollectionId}
                     currentFolderId={currentFolderId}
                     collectionName={collectionName}
-                    collectionSlug={
-                      collections.find((c) => c.id === selectedCollectionId)
-                        ?.slug || ""
-                    }
+                    collectionSlug={currentCollectionSlug}
                     refreshTrigger={refreshTrigger}
                     searchQuery={searchQuery}
                     searchScope={searchScope}
                     onSearchChange={handleSearch}
+                    onFolderNavigate={handleFolderSelect}
                   />
                 </div>
                 <Footer />
               </div>
               <BackToTop />
             </>
-          ) : (
-            // 没有任何合集时
-            <div className="flex flex-1">
-              <Suspense fallback={<div className="flex items-center justify-center flex-1">加载中...</div>}>
-                <LazyGetStarted />
-              </Suspense>
-            </div>
           )}
         </SidebarProvider>
       </div>

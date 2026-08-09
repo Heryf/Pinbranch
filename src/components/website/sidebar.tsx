@@ -10,14 +10,13 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { ChevronRight, Folder, FolderOpen, Home, Library } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen, Library } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSettingImages } from "@/hooks/useSettingImages";
 import { useSettings } from "@/hooks/use-settings";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 interface Collection {
   id: string;
@@ -36,8 +35,9 @@ interface FolderNode {
 }
 
 interface WebsiteSidebarProps {
-  onFolderSelect?: (folderId: string | null) => void;
-  onCollectionChange?: (collectionId: string, slug: string) => void;
+  onFolderSelect?: (folderId: string | null, collectionId: string) => void;
+  onCollectionChange?: (collectionId: string, slug: string | null) => void;
+  onGoHome?: () => void;
   selectedCollectionId: string;
   currentFolderId: string | null;
   collections?: Collection[];
@@ -47,14 +47,12 @@ interface WebsiteSidebarProps {
 export function WebsiteSidebar({
   onFolderSelect,
   onCollectionChange,
+  onGoHome,
   selectedCollectionId,
   currentFolderId,
   collections: propCollections,
   collectionsLoading,
 }: WebsiteSidebarProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [localCollections, setLocalCollections] = useState<Collection[]>([]);
   const [collectionFolders, setCollectionFolders] = useState<Map<string, any[]>>(new Map());
   const [collectionFolderTrees, setCollectionFolderTrees] = useState<Map<string, FolderNode[]>>(new Map());
@@ -244,26 +242,25 @@ export function WebsiteSidebar({
     });
   };
 
-  // 点击合集：右侧切换到该合集根目录
+  // 点击合集：右侧切换到该合集根目录（SPA 纯客户端切换，不修改 URL）
   const handleCollectionSelect = (collection: Collection) => {
     if (onCollectionChange) {
-      onCollectionChange(collection.id, collection.slug || '');
-    } else {
-      const currentSearchParams = new URLSearchParams();
-      currentSearchParams.set("collection", collection.slug || '');
-      router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
+      onCollectionChange(collection.id, collection.slug);
     }
   };
 
-  // 点击文件夹：右侧切换到该文件夹
+  // 点击文件夹：右侧切换到该文件夹（SPA 纯客户端切换，不修改 URL）
   const handleFolderSelect = (folderId: string, collectionId: string) => {
-    const collection = collections.find((c) => c.id === collectionId);
-    if (!collection) return;
+    if (onFolderSelect) {
+      onFolderSelect(folderId, collectionId);
+    }
+  };
 
-    const currentSearchParams = new URLSearchParams();
-    currentSearchParams.set("collection", collection.slug || '');
-    currentSearchParams.set("folderId", folderId);
-    router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
+  // 点击首页书签集：返回 home 视图
+  const handleGoHome = () => {
+    if (onGoHome) {
+      onGoHome();
+    }
   };
 
   // 渲染文件夹树
@@ -408,19 +405,16 @@ export function WebsiteSidebar({
           <SidebarMenu className="space-y-0.5">
             <SidebarMenuItem>
               <SidebarMenuButton
-                asChild
+                onClick={handleGoHome}
                 className={cn(
-                  "flex items-center w-full rounded-lg transition-all duration-200",
+                  "flex items-center w-full rounded-lg transition-all duration-200 cursor-pointer",
                   "hover:bg-sidebar-accent/80",
                   !selectedCollectionId
                     ? "bg-sidebar-accent text-primary font-medium"
                     : ""
                 )}
               >
-                <Link
-                  href="/"
-                  className="flex items-center gap-1.5 w-full py-1.5"
-                >
+                <div className="flex items-center gap-1.5 w-full py-1.5">
                   <Library
                     className={cn(
                       "h-3.5 w-3.5 shrink-0 transition-colors duration-200",
@@ -442,7 +436,7 @@ export function WebsiteSidebar({
                   <span className="ml-auto text-[10px] text-muted-foreground/50 font-medium">
                     {collections.length}
                   </span>
-                </Link>
+                </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

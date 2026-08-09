@@ -4,10 +4,9 @@ import { useState, useEffect, useRef, useCallback, startTransition, type ReactNo
 import { BookmarkCard } from "./BookmarkCard";
 import { FolderCard } from "./FolderCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight, FolderOpen, Lock } from "lucide-react";
+import { ChevronRight, FolderOpen, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PasswordDialog } from "@/components/folder/PasswordDialog";
 
 interface BookmarkGridProps {
@@ -20,6 +19,7 @@ interface BookmarkGridProps {
   searchQuery?: string;
   searchScope?: 'all' | 'current';
   onSearchChange?: (query: string, scope: 'all' | 'current') => void;
+  onFolderNavigate?: (folderId: string | null) => void;
 }
 
 interface Subfolder {
@@ -123,11 +123,8 @@ export function BookmarkGrid({
   searchQuery = "",
   searchScope = 'all',
   onSearchChange,
+  onFolderNavigate,
 }: BookmarkGridProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const [currentBookmarks, setCurrentBookmarks] = useState<Bookmark[]>([]);
   const [subfolders, setSubfolders] = useState<Subfolder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -151,14 +148,15 @@ export function BookmarkGrid({
 
   const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const routeToFolderInCollection = (collectionSlug: string, folderId?: string) => {
-    const currentSearchParams = new URLSearchParams(searchParams.toString());
-    collectionSlug ? currentSearchParams.set("collection", collectionSlug) : currentSearchParams.delete("collection");
-    folderId ? currentSearchParams.set("folderId", folderId) : currentSearchParams.delete("folderId");
-    router.push(`${pathname}?${currentSearchParams.toString()}`, { scroll: false });
-  }
-
-  // 获取当前层级的书签和子文件夹（分页加载第一页）
+  const handleFolderNavigation = useCallback((folderId: string | null) => {
+    if (folderId === null) {
+      setBreadcrumbs([]);
+    }
+    // SPA 纯客户端切换：通过回调通知 page.tsx 更新 currentFolderId
+    if (onFolderNavigate) {
+      onFolderNavigate(folderId);
+    }
+  }, [onFolderNavigate]);
   const BOOKMARK_PAGE_SIZE = 48;
 
   const fetchBookmarkData = useCallback(async (folderId: string | null) => {
@@ -340,20 +338,17 @@ export function BookmarkGrid({
     }
   }, [searchQuery, searchScope]);
 
-  // 处理文件夹导航
-  const handleFolderNavigation = useCallback(async (folderId: string | null) => {
+  // 处理文件夹导航 - 旧版本已迁移到顶部 handleFolderNavigation
+  // 此处保留空函数体（如果需要从其他位置调用）
+  const handleFolderNavigationLegacy = useCallback((folderId: string | null) => {
     if (!collectionSlug) return;
     if (folderId === null) {
       setBreadcrumbs([]);
-      startTransition(() => {
-        routeToFolderInCollection(collectionSlug);
-      });
-    } else {
-      startTransition(() => {
-        routeToFolderInCollection(collectionSlug, folderId);
-      });
     }
-  }, [collectionSlug]);
+    if (onFolderNavigate) {
+      onFolderNavigate(folderId);
+    }
+  }, [collectionSlug, onFolderNavigate]);
 
   // 清理定时器
   useEffect(() => {

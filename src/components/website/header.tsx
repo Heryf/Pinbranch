@@ -9,54 +9,43 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import CreateBookmarkDialogGlobal from "@/components/bookmark/CreateBookmarkDialogGlobal";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-
-interface Collection {
-  id: string;
-  name: string;
-  slug: string;
-  isPublic: boolean;
-  description?: string;
-}
 
 interface HeaderProps {
   selectedCollectionId?: string;
   currentFolderId?: string | null;
   onBookmarkAdded?: () => void;
-  onCollectionChange?: (id: string) => void;
+  onNavigateToFolder?: (folderId: string | null) => void;
 }
 
-export function Header({ 
-  selectedCollectionId, 
-  currentFolderId, 
+export function Header({
+  selectedCollectionId,
+  currentFolderId,
   onBookmarkAdded,
-  onCollectionChange 
+  onNavigateToFolder
 }: HeaderProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [dialogOpen, setDialogOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   const handleSuccess = async (newBookmarkFolderId?: string) => {
     setDialogOpen(false);
-    
+
     if (
-      (newBookmarkFolderId && newBookmarkFolderId === currentFolderId) || 
+      (newBookmarkFolderId && newBookmarkFolderId === currentFolderId) ||
       (!newBookmarkFolderId && !currentFolderId)
     ) {
       if (onBookmarkAdded) {
         await onBookmarkAdded();
       }
     }
-    
+
     const targetFolderId = newBookmarkFolderId || currentFolderId;
-    
+
+    // 切到目标文件夹：SPA 纯客户端切换，不修改 URL
     if (targetFolderId && targetFolderId !== currentFolderId) {
-      const currentSearchParams = new URLSearchParams(searchParams.toString());
-      currentSearchParams.set('folderId', targetFolderId);
-      router.push(`${pathname}?${currentSearchParams.toString()}`);
+      if (onNavigateToFolder) {
+        onNavigateToFolder(targetFolderId);
+      }
     }
   };
 
