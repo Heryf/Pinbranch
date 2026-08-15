@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminHeader } from "@/components/admin/header";
 import { revalidateData } from "@/actions/revalidate-data";
+import { notifySettingsUpdated } from "@/hooks/use-settings";
 const defaultSettings = {
   // websiteName: "",
   description: "",
@@ -113,6 +114,9 @@ export default function SeoSettingsPage() {
       await Promise.all(saveSettingPromises);
 
       revalidateData();
+
+      // 主动失效前端 sessionStorage 缓存，通知所有标签页立即刷新
+      notifySettingsUpdated();
 
       toast.success("SEO设置已保存");
     } catch (error) {

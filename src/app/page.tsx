@@ -10,8 +10,7 @@ import { GetStarted } from "@/components/website/get-started";
 import { BackToTop } from "@/components/website/back-to-top";
 import { SearchBar } from "@/components/search/SearchBar";
 import { CollectionGrid } from "@/components/collection/CollectionGrid";
-import { Library, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Library } from "lucide-react";
 import { Collection } from "@prisma/client";
 import { useSettings } from "@/hooks/use-settings";
 
@@ -208,17 +207,6 @@ function SearchParamsComponent() {
                 collectionsLoading={isLoading}
               />
               <div className="flex flex-1 flex-col">
-                <div className="flex items-center justify-between px-4 pt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={goHome}
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>返回书签集</span>
-                  </Button>
-                </div>
                 <Header
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}

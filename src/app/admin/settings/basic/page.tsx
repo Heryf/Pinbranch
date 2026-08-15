@@ -18,6 +18,7 @@ import { AdminHeader } from "@/components/admin/header";
 
 import { useSettingImages } from "@/hooks/useSettingImages";
 import { updateSettingImage } from "@/actions/update-setting-image";
+import { notifySettingsUpdated } from "@/hooks/use-settings";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -195,10 +196,16 @@ export default function BasicSettingsPage() {
   
       // 并行处理所有操作
       await Promise.all(saveSettingPromises);
-  
+
       toast.success(`设置已保存`);
 
+      // 1. 触发 Next.js 服务端缓存失效（重新生成 ISR 页面）
       revalidateData();
+
+      // 2. 主动失效前端 sessionStorage 缓存，并通过事件/storage 事件
+      //    通知当前及其他标签页的所有 useSettings/useSettingImages 组件
+      //    立即重新拉取最新数据，无需等待 30 秒 TTL 过期
+      notifySettingsUpdated();
     } catch (error) {
       console.error("Save settings failed:", error);
       toast.error(error instanceof Error ? error.message : "保存设置失败");
