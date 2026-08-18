@@ -89,7 +89,7 @@ export function useSettings(group?: string) {
         setSettings(cached);
         setLoading(false);
         // 后台异步刷新（不阻塞 UI，下次进入时拿到最新数据）
-        fetch(`/api/settings${group ? `?group=${group}` : ''}`)
+        fetch(`/api/settings${group ? `?group=${group}` : ''}`, { cache: 'no-store' })
           .then(res => res.ok ? res.json() : null)
           .then(data => {
             if (data) {
@@ -104,7 +104,7 @@ export function useSettings(group?: string) {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/settings${group ? `?group=${group}` : ''}`);
+      const response = await fetch(`/api/settings${group ? `?group=${group}` : ''}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Load settings failed');
       const data = await response.json();
       setSettings(data);

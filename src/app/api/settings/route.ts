@@ -2,43 +2,44 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { revalidateTag, unstable_cache } from 'next/cache';
+
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+// 增加超时时间到最大值
+export const maxDuration = 60; // Vercel Hobby 允许的最大时间是 60 秒
+export const dynamic = 'force-dynamic';
 
-// 缓存设置查询，避免每次请求都查 DB
-const getCachedSettings = unstable_cache(
-  async (group?: string) => {
-    const settings = group
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const group = searchParams.get('group');
+    
+    // 获取所有设置
+    const settings = group 
       ? await prisma.siteSetting.findMany({ where: { group } })
       : await prisma.siteSetting.findMany();
 
+    
+    // 将设置转换为键值对格式
     const formattedSettings = settings.reduce((acc: Record<string, string>, setting) => {
       acc[setting.key] = setting.value || '';
       return acc;
     }, {});
 
-    return {
+
+    // 合并默认值和数据库值
+    const result = {
       ...formattedSettings,
       enableSearch: true
     };
-  },
-  ['settings-cache-v1'],
-  { revalidate: 120, tags: ['site-metadata'] }
-);
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const group = searchParams.get('group') || undefined;
-
-    const result = await getCachedSettings(group);
-
-    // 添加 HTTP 缓存头
-    const response = NextResponse.json(result);
-    response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
-    return response;
+    // 显式设置 no-store 缓存头，防止浏览器 / Vercel CDN 缓存旧数据
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+      },
+    });
   } catch (error) {
     console.error('Failed to get settings:', error);
     return NextResponse.json({ 
@@ -62,6 +63,9 @@ export async function POST(request: Request) {
       const updatedSettings = [];
 
       for (const [key, value] of Object.entries(data)) {
+        // 跳过非设置字段（如 group 等辅助字段）
+        if (key === 'group') continue;
+
         const existingSetting = await prisma.siteSetting.findUnique({
           where: { key }
         });
@@ -74,17 +78,28 @@ export async function POST(request: Request) {
             }
           });
           updatedSettings.push(updated);
+        } else {
+          // 设置项不存在时自动创建，避免静默丢失
+          const created = await prisma.siteSetting.create({
+            data: {
+              key,
+              value: String(value),
+              type: 'string',
+              group: (data as any).group || 'basic',
+            }
+          });
+          updatedSettings.push(created);
         }
       }
 
 
-
-      // 缓存失效：设置更新后清除 metadata 和 collections 缓存
-      revalidateTag('site-metadata');
-
       return NextResponse.json({ 
         message: 'Settings saved',
         results: updatedSettings
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
       });
     } catch (dbError) {
       console.error('Database operation failed:', dbError);

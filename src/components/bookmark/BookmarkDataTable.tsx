@@ -353,7 +353,7 @@ export function BookmarkDataTable({
       )}
 
       <div className="rounded-lg border bg-card">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
@@ -364,11 +364,11 @@ export function BookmarkDataTable({
                   aria-label="Select all bookmarks"
                 />
               </TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Icon</TableHead>
-              <TableHead>Icon URL</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>View Count</TableHead>
+              <TableHead className="w-[18%]">Title</TableHead>
+              <TableHead className="w-14">Icon</TableHead>
+              <TableHead className="w-[16%]">Icon URL</TableHead>
+              <TableHead className="w-[22%]">Description</TableHead>
+              <TableHead className="w-20">View Count</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -395,7 +395,7 @@ export function BookmarkDataTable({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="w-16">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -418,26 +418,26 @@ export function BookmarkDataTable({
                       />
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell className="w-[18%]">
+                    <div className="flex items-center gap-2 min-w-0">
                       {item.type === "folder" ? (
                         <Button
                           variant="ghost"
-                          className="p-0 hover:bg-transparent"
+                          className="p-0 hover:bg-transparent max-w-full"
                           onClick={() => onFolderClick(item.id)}
                         >
-                          <Folder className="w-4 h-4 mr-2" />
-                          {item.title}
+                          <Folder className="w-4 h-4 mr-2 shrink-0" />
+                          <span className="truncate">{item.title}</span>
                         </Button>
                       ) : (
                         <>
-                          {item.isFeatured && <Star className="w-4 h-4 text-yellow-400" />}
-                          <span>{item.title}</span>
+                          {item.isFeatured && <Star className="w-4 h-4 shrink-0 text-yellow-400" />}
+                          <span className="truncate" title={item.title}>{item.title}</span>
                         </>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="w-14">
                     {item.type === "bookmark" && item.icon && (
                       <div className="flex items-center justify-center">
                         <img
@@ -451,15 +451,23 @@ export function BookmarkDataTable({
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">
+                  <TableCell className="w-[16%]">
+                    <span
+                      className="block truncate text-sm text-muted-foreground"
+                      title={item.type === "bookmark" ? item.icon || "" : ""}
+                    >
                       {item.type === "bookmark" ? item.icon || "-" : "-"}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    {item.type === "bookmark" ? item.description || "-" : "-"}
+                  <TableCell className="w-[22%]">
+                    <span
+                      className="block truncate"
+                      title={item.type === "bookmark" ? item.description || "" : ""}
+                    >
+                      {item.type === "bookmark" ? item.description || "-" : "-"}
+                    </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="w-20">
                     {item.type === "bookmark" ? item.viewCount || 0 : "-"}
                   </TableCell>
                   <TableCell>
@@ -468,7 +476,7 @@ export function BookmarkDataTable({
                   <TableCell>
                     {new Date(item.updatedAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="w-16">
                     <TableActions item={item} onUpdate={onBookmarksChange} />
                   </TableCell>
                 </TableRow>
