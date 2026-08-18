@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminHeader } from "@/components/admin/header";
-import { revalidateData } from "@/actions/revalidate-data";
 import { notifySettingsUpdated } from "@/hooks/use-settings";
 const defaultSettings = {
   // websiteName: "",
@@ -113,9 +112,8 @@ export default function SeoSettingsPage() {
       // 并行处理所有操作
       await Promise.all(saveSettingPromises);
 
-      revalidateData();
-
       // 主动失效前端 sessionStorage 缓存，通知所有标签页立即刷新
+      // 注意：不调用 revalidateData()，避免触发客户端路由刷新导致 state 重置
       notifySettingsUpdated();
 
       toast.success("SEO设置已保存");

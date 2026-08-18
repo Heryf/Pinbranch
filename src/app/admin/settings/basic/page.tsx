@@ -33,8 +33,6 @@ import {
 } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation";
 
-import { revalidateData } from "@/actions/revalidate-data";
-
 
 
 export default function BasicSettingsPage() {
@@ -199,12 +197,11 @@ export default function BasicSettingsPage() {
 
       toast.success(`设置已保存`);
 
-      // 1. 触发 Next.js 服务端缓存失效（重新生成 ISR 页面）
-      revalidateData();
-
-      // 2. 主动失效前端 sessionStorage 缓存，并通过事件/storage 事件
-      //    通知当前及其他标签页的所有 useSettings/useSettingImages 组件
-      //    立即重新拉取最新数据，无需等待 30 秒 TTL 过期
+      // 主动失效前端 sessionStorage 缓存，并通过事件/storage 事件
+      // 通知当前及其他标签页的所有 useSettings/useSettingImages 组件
+      // 立即重新拉取最新数据，无需等待 30 秒 TTL 过期
+      // 注意：不调用 revalidateData()，因为它会触发 revalidatePath('/', 'layout')
+      // 导致客户端路由刷新、组件 state 重置（activeTab 跳回"基本信息"）
       notifySettingsUpdated();
     } catch (error) {
       console.error("Save settings failed:", error);

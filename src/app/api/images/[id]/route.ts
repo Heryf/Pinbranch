@@ -16,10 +16,11 @@ export async function GET(
       return new NextResponse(null, { status: 404 })
     }
 
-    return new NextResponse(new Uint8Array(image.data), {
+    return new NextResponse(image.data, {
       headers: {
         'Content-Type': image.mimeType,
-        'Content-Length': image.size.toString()
+        'Content-Length': image.size.toString(),
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
       }
     })
   } catch (error) {
