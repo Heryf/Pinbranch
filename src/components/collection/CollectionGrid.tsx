@@ -70,11 +70,17 @@ const CollectionGridCard = memo(function CollectionGridCard({
 
       {/* 名称 */}
       <div className="flex flex-col items-center w-full min-w-0">
-        <h3 className="text-sm font-semibold text-foreground truncate max-w-full group-hover:text-primary transition-colors">
+        <h3
+          className="text-sm font-semibold text-foreground truncate max-w-full group-hover:text-primary transition-colors"
+          title={collection.name}
+        >
           {collection.name}
         </h3>
         {collection.description && (
-          <p className="text-xs text-muted-foreground/70 line-clamp-1 max-w-full mt-1">
+          <p
+            className="text-xs text-muted-foreground/70 line-clamp-1 max-w-full mt-1"
+            title={collection.description}
+          >
             {collection.description}
           </p>
         )}

@@ -425,6 +425,7 @@ export function BookmarkDataTable({
                           variant="ghost"
                           className="p-0 hover:bg-transparent max-w-full"
                           onClick={() => onFolderClick(item.id)}
+                          title={item.title}
                         >
                           <Folder className="w-4 h-4 mr-2 shrink-0" />
                           <span className="truncate">{item.title}</span>

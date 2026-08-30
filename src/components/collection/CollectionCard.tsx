@@ -106,10 +106,13 @@ export function CollectionCard({ collection, onUpdate }: CollectionCardProps) {
             <div className="flex flex-col h-[120px]">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h3 className="font-medium truncate">{collection.name}</h3>
+                  <h3 className="font-medium truncate" title={collection.name}>{collection.name}</h3>
                   <div className="h-[40px]">
                     {collection.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      <p
+                        className="text-sm text-muted-foreground mt-1 line-clamp-2"
+                        title={collection.description}
+                      >
                         {collection.description}
                       </p>
                     )}

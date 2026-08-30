@@ -73,7 +73,10 @@ function BookmarkCardComponent({
 
       <div className="flex flex-col overflow-hidden flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold mb-0.5 truncate text-foreground transition-colors duration-300">
+          <h2
+            className="text-sm font-semibold mb-0.5 truncate text-foreground transition-colors duration-300"
+            title={title}
+          >
             {title}
           </h2>
           {isFeatured && (
@@ -84,12 +87,18 @@ function BookmarkCardComponent({
         </div>
 
         {description && (
-          <p className="text-xs text-muted-foreground/80 mb-1 line-clamp-1 leading-relaxed">
+          <p
+            className="text-xs text-muted-foreground/80 mb-1 line-clamp-1 leading-relaxed"
+            title={description}
+          >
             {description}
           </p>
         )}
 
-        <p className="text-xs text-muted-foreground/60 truncate leading-relaxed">
+        <p
+          className="text-xs text-muted-foreground/60 truncate leading-relaxed"
+          title={url}
+        >
           {cleanUrl}
         </p>
 

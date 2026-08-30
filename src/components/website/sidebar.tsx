@@ -312,6 +312,7 @@ export function WebsiteSidebar({
                     ? "text-primary font-medium"
                     : "text-foreground/90"
                 )}
+                title={folder.name}
               >
                 {folder.name}
               </span>
@@ -490,6 +491,7 @@ export function WebsiteSidebar({
                                 ? "text-primary font-medium"
                                 : "text-foreground/90"
                             )}
+                            title={collection.name}
                           >
                             {collection.name}
                           </span>

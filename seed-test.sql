@@ -1,0 +1,3 @@
+INSERT INTO "Collection" (id, name, slug, description, "isPublic", "sortOrder", "createdAt", "updatedAt") VALUES ('test1','这是一个超长的测试合集名称用来验证悬停提示功能是否正常显示完整内容','test-long-name','这是一段非常长的合集描述文字用于验证描述被截断后悬停能否显示完整内容这是第二句补充说明','true',0,now(),now());
+INSERT INTO "Bookmark" (id, title, url, description, "collectionId", "sortOrder", "createdAt", "updatedAt") VALUES ('bm1','这是一个超长的书签标题用于验证悬停提示完整标题显示效果怎么样呢','https://example.com/very/long/path/that/will/be/truncated?a=1&b=2','这是超长的书签描述内容用来验证描述截断后悬停显示完整内容的效果这是补充','test1',0,now(),now());
+INSERT INTO "Bookmark" (id, title, url, description, "collectionId", "sortOrder", "createdAt", "updatedAt") VALUES ('bm2','普通书签','https://example.com','普通描述','test1',1,now(),now());
