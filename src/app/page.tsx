@@ -84,6 +84,8 @@ function SearchParamsComponent() {
     setSelectedCollectionId("");
     setCollectionName("");
     setCurrentFolderId(null);
+    setSearchQuery("");
+    setSearchScope('all');
   }, []);
 
   // 切换合集：纯 setState，不修改 URL，不重新 fetch
@@ -95,6 +97,8 @@ function SearchParamsComponent() {
     setSelectedCollectionId(id);
     setCollectionName(collection.name || "");
     setCurrentFolderId(null);
+    setSearchQuery("");
+    setSearchScope('all');
   }, [collections]);
 
   // 通过 slug 切换合集（首页 CollectionGrid 调用）
@@ -118,6 +122,8 @@ function SearchParamsComponent() {
       }
     }
     setCurrentFolderId(id);
+    setSearchQuery("");
+    setSearchScope('all');
   }, [collections, selectedCollectionId]);
 
   // Header 在添加书签后，切换到目标文件夹：纯 setState

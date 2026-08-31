@@ -9,6 +9,24 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
+const STORAGE_KEY = "pintree-theme";
+
+const safeGetItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeSetItem = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore (e.g., private mode, quota exceeded)
+  }
+};
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -17,13 +35,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem("pintree-theme") as Theme;
-    if (stored === "light") {
-      setTheme("light");
-      document.documentElement.classList.remove("dark");
+    const stored = safeGetItem(STORAGE_KEY) as Theme;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initialTheme: Theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+
+    setTheme(initialTheme);
+    const root = document.documentElement;
+    if (initialTheme === "dark") {
+      root.classList.add("dark");
     } else {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
+      root.classList.remove("dark");
     }
   }, []);
 
@@ -35,7 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove("dark");
     }
-    localStorage.setItem("pintree-theme", theme);
+    safeSetItem(STORAGE_KEY, theme);
   }, [theme, mounted]);
 
   const toggleTheme = useCallback(() => {
@@ -47,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       } else {
         root.classList.remove("dark");
       }
-      localStorage.setItem("pintree-theme", next);
+      safeSetItem(STORAGE_KEY, next);
       return next;
     });
   }, []);

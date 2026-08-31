@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { revalidateTag } from "next/cache";
 
 export async function POST(request: Request) {
   try {
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
         parentId: parentId || null
       },
     });
+
+    // 使相关缓存失效，确保创建后前端立即看到新数据
+    revalidateTag(`folders-${collectionId}`);
+    revalidateTag('collections');
 
     return NextResponse.json(folder);
   } catch (error) {

@@ -56,7 +56,7 @@ export function CreateFolderDialog({
 
   const fetchFolders = async () => {
     try {
-      const response = await fetch(`/api/collections/${collectionId}/folders`);
+      const response = await fetch(`/api/collections/${collectionId}/folders`, { cache: 'no-store' });
       const data = await response.json();
       setFolders(data);
     } catch (error) {

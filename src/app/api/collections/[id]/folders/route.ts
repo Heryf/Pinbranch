@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
 
 export async function GET(
   request: Request,
@@ -13,32 +12,24 @@ export async function GET(
     const all = searchParams.get("all") === "true";
     const parentId = searchParams.get("parentId");
 
-    // 使用 unstable_cache 缓存文件夹列表，30s 内重复请求直接返回
-    const getFolders = unstable_cache(
-      async () => {
-        const folders = await prisma.folder.findMany({
-          where: {
-            collectionId: id,
-            ...(all ? {} : { parentId: parentId || null }),
-          },
-          orderBy: { sortOrder: 'asc' }
-        });
-
-        // 安全处理：不返回密码字段，用 isPrivate 代替
-        return folders.map(folder => ({
-          ...folder,
-          password: undefined,
-          isPrivate: !folder.isPublic && !!folder.password,
-        }));
+    const folders = await prisma.folder.findMany({
+      where: {
+        collectionId: id,
+        ...(all ? {} : { parentId: parentId || null }),
       },
-      ['folders-list', id, all ? 'all' : (parentId || 'root')],
-      { revalidate: 30, tags: [`folders-${id}`] }
-    );
+      orderBy: { sortOrder: 'asc' }
+    });
 
-    const safeFolders = await getFolders();
+    // 安全处理：不返回密码字段，用 isPrivate 代替
+    const safeFolders = folders.map(folder => ({
+      ...folder,
+      password: undefined,
+      isPrivate: !folder.isPublic && !!folder.password,
+    }));
 
     const response = NextResponse.json(safeFolders);
-    response.headers.set('Cache-Control', 'public, max-age=15, s-maxage=30, stale-while-revalidate=60');
+    // 禁用浏览器缓存，确保 CRUD 后数据实时一致
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
     return response;
   } catch (error) {
     console.error("Failed to get folders:", error);

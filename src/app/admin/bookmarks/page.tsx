@@ -85,7 +85,7 @@ export default function BookmarksPage() {
 
   const fetchCollections = async () => {
     try {
-      const response = await fetch("/api/collections");
+      const response = await fetch("/api/collections", { cache: 'no-store' });
       const data = await response.json();
       setCollections(data);
       
@@ -136,7 +136,8 @@ export default function BookmarksPage() {
       });
 
       const response = await fetch(
-        `/api/admin/collections/${collectionId}/bookmarks?${queryParams}`
+        `/api/admin/collections/${collectionId}/bookmarks?${queryParams}`,
+        { cache: 'no-store' }
       );
       const data = await response.json();
       console.log("Received bookmarks data:", data);
@@ -157,7 +158,8 @@ export default function BookmarksPage() {
     try {
       const response = await fetch(
         `/api/collections/${collectionId}/folders?` +
-        (currentFolderId ? `parentId=${currentFolderId}` : '')
+        (currentFolderId ? `parentId=${currentFolderId}` : ''),
+        { cache: 'no-store' }
       );
       const data = await response.json();
       setFolders(data);
@@ -168,7 +170,7 @@ export default function BookmarksPage() {
 
   const fetchAllFolders = async (collectionId: string = selectedCollectionId) => {
     try {
-      const response = await fetch(`/api/collections/${collectionId}/folders?all=true`);
+      const response = await fetch(`/api/collections/${collectionId}/folders?all=true`, { cache: 'no-store' });
       const data = await response.json();
       setAllFolders(data);
     } catch (error) {
@@ -193,7 +195,7 @@ export default function BookmarksPage() {
       setError(null);
 
       // 获取目标文件夹的路径
-      const pathResponse = await fetch(`/api/collections/${selectedCollectionId}/folders/${folderId}/path`);
+      const pathResponse = await fetch(`/api/collections/${selectedCollectionId}/folders/${folderId}/path`, { cache: 'no-store' });
       const pathData = await pathResponse.json();
       
       // 更新状态
@@ -203,11 +205,13 @@ export default function BookmarksPage() {
       // 获取新文件夹的内容
       const [bookmarksResponse, foldersResponse] = await Promise.all([
         fetch(
-          `/api/collections/${selectedCollectionId}/bookmarks?` + 
-          `sortField=${sortField}&sortOrder=${sortOrder}&folderId=${folderId}`
+          `/api/collections/${selectedCollectionId}/bookmarks?` +
+          `sortField=${sortField}&sortOrder=${sortOrder}&folderId=${folderId}`,
+          { cache: 'no-store' }
         ),
         fetch(
-          `/api/collections/${selectedCollectionId}/folders?parentId=${folderId}`
+          `/api/collections/${selectedCollectionId}/folders?parentId=${folderId}`,
+          { cache: 'no-store' }
         )
       ]);
 
@@ -252,13 +256,15 @@ export default function BookmarksPage() {
       // 直接使用 targetFolderId 获取内容，而不是依赖于状态
       const [bookmarksResponse, foldersResponse] = await Promise.all([
         fetch(
-          `/api/collections/${selectedCollectionId}/bookmarks?` + 
+          `/api/collections/${selectedCollectionId}/bookmarks?` +
           `sortField=${sortField}&sortOrder=${sortOrder}` +
-          (targetFolderId ? `&folderId=${targetFolderId}` : '')
+          (targetFolderId ? `&folderId=${targetFolderId}` : ''),
+          { cache: 'no-store' }
         ),
         fetch(
           `/api/collections/${selectedCollectionId}/folders?` +
-          (targetFolderId ? `parentId=${targetFolderId}` : '')
+          (targetFolderId ? `parentId=${targetFolderId}` : ''),
+          { cache: 'no-store' }
         )
       ]);
 
