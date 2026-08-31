@@ -22,6 +22,7 @@ export async function DELETE(
 
     // 缓存失效
     revalidateTag('collections');
+    revalidateTag('bookmarks');
 
     return NextResponse.json({ message: "Delete success" });
   } catch (error) {
@@ -70,6 +71,7 @@ export async function PUT(
 
     // 缓存失效
     revalidateTag('collections');
+    revalidateTag('bookmarks');
 
     return NextResponse.json(bookmark);
   } catch (error) {

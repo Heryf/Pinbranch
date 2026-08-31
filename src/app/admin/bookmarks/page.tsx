@@ -286,6 +286,7 @@ export default function BookmarksPage() {
   const handleBookmarksChange = async () => {
     if (selectedCollectionId) {
       try {
+        setLoading(true);
         await Promise.all([
           fetchBookmarks(selectedCollectionId),
           fetchFolders(selectedCollectionId),
@@ -293,6 +294,8 @@ export default function BookmarksPage() {
         ]);
       } catch (error) {
         console.error("Failed to refresh data:", error);
+      } finally {
+        setLoading(false);
       }
     }
   };

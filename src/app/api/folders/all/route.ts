@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
 
 /**
  * 批量获取所有公开合集下的所有文件夹
@@ -9,50 +8,41 @@ import { unstable_cache } from "next/cache";
 export async function GET() {
   try {
     // 1. 获取所有公开合集
-    const getAllFolders = unstable_cache(
-      async () => {
-        const collections = await prisma.collection.findMany({
-          where: { isPublic: true },
-          select: { id: true }
-        });
+    const collections = await prisma.collection.findMany({
+      where: { isPublic: true },
+      select: { id: true }
+    });
 
-        if (collections.length === 0) return {};
+    if (collections.length === 0) return NextResponse.json({});
 
-        const collectionIds = collections.map(c => c.id);
+    const collectionIds = collections.map(c => c.id);
 
-        // 2. 单次查询获取所有合集的所有文件夹
-        const folders = await prisma.folder.findMany({
-          where: {
-            collectionId: { in: collectionIds }
-          },
-          orderBy: { sortOrder: 'asc' }
-        });
-
-        // 3. 按 collectionId 分组
-        const grouped: Record<string, any[]> = {};
-        for (const folder of folders) {
-          // 安全脱敏
-          const safeFolder = {
-            ...folder,
-            password: undefined,
-            isPrivate: !folder.isPublic && !!folder.password,
-          };
-          if (!grouped[folder.collectionId]) {
-            grouped[folder.collectionId] = [];
-          }
-          grouped[folder.collectionId].push(safeFolder);
-        }
-
-        return grouped;
+    // 2. 单次查询获取所有合集的所有文件夹
+    const folders = await prisma.folder.findMany({
+      where: {
+        collectionId: { in: collectionIds }
       },
-      ['all-folders-tree'],
-      { revalidate: 30, tags: ['folders', 'collections'] }
-    );
+      orderBy: { sortOrder: 'asc' }
+    });
 
-    const grouped = await getAllFolders();
+    // 3. 按 collectionId 分组
+    const grouped: Record<string, any[]> = {};
+    for (const folder of folders) {
+      // 安全脱敏
+      const safeFolder = {
+        ...folder,
+        password: undefined,
+        isPrivate: !folder.isPublic && !!folder.password,
+      };
+      if (!grouped[folder.collectionId]) {
+        grouped[folder.collectionId] = [];
+      }
+      grouped[folder.collectionId].push(safeFolder);
+    }
 
     const response = NextResponse.json(grouped);
-    response.headers.set('Cache-Control', 'public, max-age=15, s-maxage=30, stale-while-revalidate=60');
+    // 禁用浏览器缓存，确保 CRUD 后数据实时一致
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
     return response;
   } catch (error) {
     console.error("Failed to get all folders:", error);

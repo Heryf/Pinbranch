@@ -27,6 +27,14 @@ const safeSetItem = (key: string, value: string) => {
   }
 };
 
+const safeRemoveItem = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+};
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -35,17 +43,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    // 内联脚本已在 layout.tsx 中同步设置了 class，这里只需同步 state
     const stored = safeGetItem(STORAGE_KEY) as Theme;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initialTheme: Theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
-
+    // 如果 localStorage 读取失败（隐私模式），保持默认 dark，不降级为系统偏好
+    const initialTheme: Theme = stored === "light" || stored === "dark" ? stored : "dark";
     setTheme(initialTheme);
-    const root = document.documentElement;
-    if (initialTheme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
   }, []);
 
   useEffect(() => {
@@ -62,13 +64,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      const root = document.documentElement;
-      if (next === "dark") {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-      safeSetItem(STORAGE_KEY, next);
       return next;
     });
   }, []);

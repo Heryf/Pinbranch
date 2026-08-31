@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     // 使相关缓存失效，确保创建后前端立即看到新数据
     revalidateTag(`folders-${collectionId}`);
     revalidateTag('collections');
+    revalidateTag('all-folders-tree');
 
     return NextResponse.json(folder);
   } catch (error) {

@@ -29,6 +29,7 @@ export async function DELETE(
     // 缓存失效
     revalidateTag(`folders-${folder.collectionId}`);
     revalidateTag('collections');
+    revalidateTag('all-folders-tree');
 
     return NextResponse.json({ message: "Delete success" });
   } catch (error) {
@@ -74,6 +75,7 @@ export async function PATCH(
     // 缓存失效
     revalidateTag(`folders-${folder.collectionId}`);
     revalidateTag('collections');
+    revalidateTag('all-folders-tree');
 
     return NextResponse.json(updatedFolder);
   } catch (error) {

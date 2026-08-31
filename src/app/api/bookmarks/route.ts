@@ -129,6 +129,7 @@ export async function POST(request: Request) {
 
     // 缓存失效：书签变化影响合集书签数
     revalidateTag('collections');
+    revalidateTag('bookmarks');
 
     return NextResponse.json(bookmark);
   } catch (error) {

@@ -83,7 +83,10 @@ export function CreateFolderDialog({
         throw new Error("创建失败");
       }
 
+      // 乐观更新：先关闭对话框再刷新，避免阻塞 UI
       onOpenChange(false);
+      
+      // 立即触发刷新（不等待 setState）
       onSuccess?.();
       
       setFormData({
