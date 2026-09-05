@@ -62,8 +62,29 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme, mounted]);
 
   const toggleTheme = useCallback(() => {
-    // 直接切换 class，浏览器单次重绘完成变色，无闪烁无卡顿
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+    const root = document.documentElement;
+    // 以 DOM class 为唯一事实来源，点击瞬间同步算出目标主题，立即响应
+    const next: Theme = root.classList.contains("dark") ? "light" : "dark";
+    const apply = () => {
+      if (next === "dark") {
+        root.classList.add("dark");
+      } else {
+        root.classList.remove("dark");
+      }
+      setTheme(next);
+    };
+    // 优先使用 View Transitions API：旧画面快照与新画面在合成器层交叉淡入淡出，
+    // 全页元素颜色同步平滑过渡，重绘不阻塞交互（Chrome/Edge/夸克均支持）
+    const doc = document as Document & {
+      startViewTransition?: (callback: () => void) => void;
+    };
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (typeof doc.startViewTransition === "function" && !reduceMotion) {
+      doc.startViewTransition(apply);
+    } else {
+      // 降级：直接同步切换 class，浏览器单次重绘完成，瞬时无延迟
+      apply();
+    }
   }, []);
 
   return (

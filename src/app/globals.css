@@ -84,7 +84,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* 仅 body 单元素轻量过渡，其余元素同步瞬时切换（一次重绘，无闪烁无卡顿） */
+    /* 轻量过渡作为降级方案的平滑补偿；支持 View Transitions 的浏览器由合成器交叉淡入淡出接管 */
     transition: background-color 200ms ease, color 200ms ease;
   }
 }
