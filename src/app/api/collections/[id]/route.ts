@@ -95,7 +95,7 @@ export async function DELETE(
       },
     });
 
-    return NextResponse.json({ message: "Delete successful" });
+    return NextResponse.json({ message: "删除成功" });
   } catch (error) {
     console.error("Delete collection error:", error);
     return NextResponse.json(
@@ -133,7 +133,7 @@ export async function PUT(request: Request) {
 
     await prisma.$transaction(updates);
 
-    return NextResponse.json({ message: "Sort order updated successfully" });
+    return NextResponse.json({ message: "排序已更新" });
   } catch (error) {
     console.error("Update sort order error:", error);
     return NextResponse.json(

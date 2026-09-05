@@ -18,38 +18,38 @@ import {
     const socialLinks = [
       {
         id: "githubUrl",
-        label: "GitHub URL",
+        label: "GitHub 链接",
         placeholder: "https://github.com/yourusername",
       },
       {
         id: "twitterUrl",
-        label: "Twitter URL",
+        label: "Twitter 链接",
         placeholder: "https://twitter.com/yourusername",
       },
       {
         id: "discordUrl",
-        label: "Discord URL",
+        label: "Discord 链接",
         placeholder: "https://discord.gg/yourserver",
       },
       {
         id: "youtubeUrl",
-        label: "YouTube Channel Link",
+        label: "YouTube 频道链接",
         placeholder: "https://youtube.com/c/yourchannel",
       },
-      { id: "weixinUrl", label: "WeChat Official Account Link", placeholder: "WeChat Official Account Link" },
+      { id: "weixinUrl", label: "微信公众号链接", placeholder: "微信公众号链接" },
       {
         id: "weiboUrl",
-        label: "Weibo Homepage Link",
+        label: "微博主页链接",
         placeholder: "https://weibo.com/yourpage",
       },
       {
         id: "bilibiliUrl",
-        label: "Bilibili Homepage Link",
+        label: "B站主页链接",
         placeholder: "https://space.bilibili.com/yourpage",
       },
       {
         id: "zhihuUrl",
-        label: "Zhihu Homepage Link",
+        label: "知乎主页链接",
         placeholder: "https://zhihu.com/people/yourpage",
       },
     ];
@@ -57,8 +57,8 @@ import {
     return (
       <Card>
         <CardHeader className="border-b border-border">
-          <CardTitle>Social Media Links</CardTitle>
-          <CardDescription>Set the social media links displayed in the footer of your website</CardDescription>
+          <CardTitle>社交媒体链接</CardTitle>
+          <CardDescription>设置显示在网站页脚的社交媒体链接</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 p-6">
           {socialLinks.map(({ id, label, placeholder }) => (

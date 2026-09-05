@@ -52,7 +52,7 @@ export async function POST(
     );
 
     return NextResponse.json({
-      message: "Bookmarks import successful",
+      message: "书签导入成功",
       importedBookmarkCount: importedBookmarks.length,
     });
   } catch (error) {

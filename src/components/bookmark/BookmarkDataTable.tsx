@@ -214,7 +214,7 @@ export function BookmarkDataTable({
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Batch delete failed");
+        throw new Error(data.error || "批量删除失败");
       }
       setBatchStatus({ type: "success", message: `Successfully deleted ${data.count} bookmarks` });
       setSelectedIds(new Set());
@@ -245,7 +245,7 @@ export function BookmarkDataTable({
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Batch move failed");
+        throw new Error(data.error || "批量移动失败");
       }
       setBatchStatus({ type: "success", message: `Successfully moved ${data.count} bookmarks` });
       setSelectedIds(new Set());
@@ -285,7 +285,7 @@ export function BookmarkDataTable({
   if (tableData.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">No items found</p>
+        <p className="text-muted-foreground">暂无内容</p>
       </div>
     );
   }
@@ -340,7 +340,7 @@ export function BookmarkDataTable({
             onClick={() => setIsBatchMoveOpen(true)}
           >
             <Move className="w-3.5 h-3.5" />
-            Batch Move
+            批量移动
           </Button>
           <Button
             variant="ghost"
@@ -349,7 +349,7 @@ export function BookmarkDataTable({
             onClick={() => setIsBatchDeleteOpen(true)}
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Batch Delete
+            批量删除
           </Button>
         </div>
       )}
@@ -363,14 +363,14 @@ export function BookmarkDataTable({
                   checked={isAllSelected}
                   className={cn(isPartialSelected && "bg-primary/50")}
                   onCheckedChange={toggleSelectAll}
-                  aria-label="Select all bookmarks"
+                  aria-label="全选书签"
                 />
               </TableHead>
-              <TableHead className="w-[18%]">Title</TableHead>
-              <TableHead className="w-14">Icon</TableHead>
-              <TableHead className="w-[16%]">Icon URL</TableHead>
-              <TableHead className="w-[22%]">Description</TableHead>
-              <TableHead className="w-20">View Count</TableHead>
+              <TableHead className="w-[18%]">标题</TableHead>
+              <TableHead className="w-14">图标</TableHead>
+              <TableHead className="w-[16%]">图标地址</TableHead>
+              <TableHead className="w-[22%]">描述</TableHead>
+              <TableHead className="w-20">访问次数</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -380,7 +380,7 @@ export function BookmarkDataTable({
                     onSortChange("createdAt", newOrder);
                   }}
                 >
-                  Created At
+                  创建时间
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
@@ -393,11 +393,11 @@ export function BookmarkDataTable({
                     onSortChange("updatedAt", newOrder);
                   }}
                 >
-                  Updated At
+                  更新时间
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="w-16">Actions</TableHead>
+              <TableHead className="w-16">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -416,7 +416,7 @@ export function BookmarkDataTable({
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggleSelect(item.id)}
-                        aria-label={`Select ${item.title}`}
+                        aria-label={`选中 ${item.title}`}
                       />
                     )}
                   </TableCell>
@@ -493,17 +493,17 @@ export function BookmarkDataTable({
       <Dialog open={isBatchDeleteOpen} onOpenChange={setIsBatchDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Batch Delete</DialogTitle>
+            <DialogTitle>确认批量删除</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete {selectedBookmarkIds.length} bookmarks? This action cannot be undone.
+              确定要删除已选中的 {selectedBookmarkIds.length} 个书签吗？此操作无法撤销。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchDeleteOpen(false)} disabled={isBatchLoading}>
-              Cancel
+              取消
             </Button>
             <Button variant="destructive" onClick={handleBatchDelete} disabled={isBatchLoading}>
-              {isBatchLoading ? "Deleting..." : "Delete"}
+              {isBatchLoading ? "删除中..." : "删除"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -513,18 +513,18 @@ export function BookmarkDataTable({
       <Dialog open={isBatchMoveOpen} onOpenChange={setIsBatchMoveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Batch Move Bookmarks</DialogTitle>
+            <DialogTitle>批量移动书签</DialogTitle>
             <DialogDescription>
-              Select target folder for {selectedBookmarkIds.length} bookmarks
+              请选择 {selectedBookmarkIds.length} 个书签的目标文件夹
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Select value={targetFolderId} onValueChange={setTargetFolderId}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select target folder" />
+                <SelectValue placeholder="选择目标文件夹" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="root">Root Directory</SelectItem>
+                <SelectItem value="root">根目录</SelectItem>
                 {allFolders
                   .filter((f) => f.id !== currentFolderId)
                   .map((folder) => (
@@ -540,7 +540,7 @@ export function BookmarkDataTable({
               Cancel
             </Button>
             <Button onClick={handleBatchMove} disabled={isBatchLoading}>
-              {isBatchLoading ? "Moving..." : "Move"}
+              {isBatchLoading ? "移动中..." : "移动"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -576,7 +576,7 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
       setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error("Delete failed:", error);
-      alert(`Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(`删除失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
@@ -589,9 +589,9 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>Edit</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>编辑</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-red-600">
-            Delete
+            删除
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -619,18 +619,18 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Delete {item.type === "folder" ? "folder" : "bookmark"}
+              删除{item.type === "folder" ? "文件夹" : "书签"}
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{item.title}&quot; this {item.type === "folder" ? "folder" : "bookmark"}? This action cannot be undone.
+              确定要删除"{item.title}"这个{item.type === "folder" ? "文件夹" : "书签"}吗？此操作无法撤销。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
+              取消
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
-              Delete
+              删除
             </Button>
           </DialogFooter>
         </DialogContent>

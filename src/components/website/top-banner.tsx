@@ -64,7 +64,7 @@ export function TopBanner() {
           className="-m-3 p-3 focus-visible:outline-offset-[-4px]"
           onClick={() => setIsVisible(false)}
         >
-          <span className="sr-only">Close</span>
+          <span className="sr-only">关闭</span>
           <X className="h-5 w-5 text-foreground" />
         </button>
       </div>

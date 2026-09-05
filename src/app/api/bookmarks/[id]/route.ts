@@ -24,7 +24,7 @@ export async function DELETE(
     revalidateTag('collections');
     revalidateTag('bookmarks');
 
-    return NextResponse.json({ message: "Delete success" });
+    return NextResponse.json({ message: "删除成功" });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Delete bookmark failed" }, { status: 500 });

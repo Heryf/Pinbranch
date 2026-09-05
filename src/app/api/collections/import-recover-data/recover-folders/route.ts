@@ -87,7 +87,7 @@ export async function POST(
     await Promise.all(folderPromises);
 
     return NextResponse.json({
-      message: "Folders import successful",
+      message: "文件夹导入成功",
       collectionId: targetCollection.id,
       insideFolderMap: insideFolderMap,
       itemsImported: folders.length,

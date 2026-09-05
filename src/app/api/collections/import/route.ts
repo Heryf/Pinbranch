@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: "Import successful",
+        message: "导入成功",
         collectionId: targetCollection.id,
         insideFolderMap: insideFolderMap,
         itemsImported: bookmarks.length,
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     console.error("Error importing bookmarks:", error);
     return NextResponse.json(
       {
-        message: "Import failed",
+        message: "导入失败",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

@@ -67,7 +67,7 @@ export default function BasicSettingsPage() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error("Load settings failed:", errorData); // 调试日志
-          throw new Error(errorData.error || "Load settings failed");
+          throw new Error(errorData.error || "加载设置失败");
         }
 
         const data = await response.json();
@@ -184,7 +184,7 @@ export default function BasicSettingsPage() {
           if (!response.ok) {
             const errorData = await response.json();
             console.error("API error response:", errorData);
-            throw new Error(errorData.error || "Save failed");
+            throw new Error(errorData.error || "保存失败");
           }
           return response.json();
         }).then(result => {

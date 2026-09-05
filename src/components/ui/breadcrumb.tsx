@@ -99,7 +99,7 @@ const BreadcrumbEllipsis = ({
     {...props}
   >
     <DotsHorizontalIcon className="h-4 w-4" />
-    <span className="sr-only">More</span>
+    <span className="sr-only">更多</span>
   </span>
 )
 BreadcrumbEllipsis.displayName = "BreadcrumbElipssis"
