@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,17 @@ interface Collection {
   name: string;
 }
 
+interface FolderNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
+interface FolderOption {
+  id: string;
+  label: string;
+}
+
 interface EditBookmarkDialogProps {
   bookmark: {
     id: string;
@@ -34,6 +45,7 @@ interface EditBookmarkDialogProps {
     isFeatured: boolean;
     sortOrder?: number;
     collectionId: string;
+    folderId?: string | null;
     icon?: string;
   };
   open: boolean;
@@ -63,11 +75,13 @@ export function EditBookmarkDialog({
     url: bookmark.url,
     description: bookmark.description || "",
     collectionId: bookmark.collectionId,
+    folderId: bookmark.folderId || "none",
     isFeatured: bookmark.isFeatured,
     icon: bookmark.icon || "",
     sortOrder: bookmark.sortOrder ?? 0,
   });
   const [availableIcons, setAvailableIcons] = useState<string[]>([]);
+  const [folders, setFolders] = useState<FolderNode[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -75,9 +89,16 @@ export function EditBookmarkDialog({
     }
   }, [open]);
 
+  // 合集变化时加载该合集的全部文件夹（含所有层级）
+  useEffect(() => {
+    if (open && formData.collectionId) {
+      fetchFolders(formData.collectionId);
+    }
+  }, [open, formData.collectionId]);
+
   const fetchCollections = async () => {
     try {
-      const response = await fetch("/api/collections");
+      const response = await fetch("/api/collections", { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -89,6 +110,42 @@ export function EditBookmarkDialog({
     }
   };
 
+  const fetchFolders = async (collectionId: string) => {
+    try {
+      const response = await fetch(`/api/collections/${collectionId}/folders?all=true`, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setFolders(data);
+    } catch (error) {
+      console.error("Get folders failed:", error);
+      setFolders([]);
+    }
+  };
+
+  // 将文件夹树按层级展平，用缩进 + 前缀表示层级
+  const folderOptions = useMemo<FolderOption[]>(() => {
+    const byParent = new Map<string | null, FolderNode[]>();
+    folders.forEach((f) => {
+      const key = f.parentId || null;
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key)!.push(f);
+    });
+
+    const result: FolderOption[] = [];
+    const walk = (parent: string | null, depth: number) => {
+      (byParent.get(parent) || []).forEach((f) => {
+        const indent = "\u00A0\u00A0\u00A0\u00A0".repeat(depth);
+        const prefix = depth > 0 ? "└ " : "";
+        result.push({ id: f.id, label: `${indent}${prefix}${f.name}` });
+        walk(f.id, depth + 1);
+      });
+    };
+    walk(null, 0);
+    return result;
+  }, [folders]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -99,6 +156,7 @@ export function EditBookmarkDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          folderId: formData.folderId === "none" ? null : formData.folderId,
           icon: formData.icon || null,
           description: formData.description || null,
         }),
@@ -117,7 +175,7 @@ export function EditBookmarkDialog({
       }
 
       const data = await response.json();
-      
+
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
@@ -195,8 +253,8 @@ export function EditBookmarkDialog({
             <Label>所属合集</Label>
             <Select
               value={formData.collectionId}
-              onValueChange={(value) => 
-                setFormData(prev => ({ ...prev, collectionId: value }))
+              onValueChange={(value) =>
+                setFormData(prev => ({ ...prev, collectionId: value, folderId: "none" }))
               }
             >
               <SelectTrigger>
@@ -210,6 +268,29 @@ export function EditBookmarkDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>所属文件夹</Label>
+            <Select
+              value={formData.folderId}
+              onValueChange={(value) =>
+                setFormData(prev => ({ ...prev, folderId: value }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择文件夹" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">根目录（不放入文件夹）</SelectItem>
+                {folderOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">可选任意层级的子文件夹，切换合集后需重新选择</p>
           </div>
 
           <div className="space-y-2">

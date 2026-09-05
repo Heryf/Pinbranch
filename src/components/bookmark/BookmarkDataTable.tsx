@@ -110,6 +110,7 @@ type TableItem = {
   };
   viewCount?: number;
   collectionId: string;
+  folderId?: string | null;
 };
 
 type BatchStatus = { type: "success" | "error"; message: string } | null;
@@ -164,6 +165,7 @@ export function BookmarkDataTable({
       updatedAt: bookmark.updatedAt,
       viewCount: bookmark.viewCount,
       collectionId: bookmark.collectionId,
+      folderId: (bookmark as any).folderId ?? null,
     })),
   ];
 

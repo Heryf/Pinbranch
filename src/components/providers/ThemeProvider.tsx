@@ -62,10 +62,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme, mounted]);
 
   const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === "light" ? "dark" : "light";
-      return next;
-    });
+    const root = document.documentElement;
+    // 切换瞬间统一启用过渡动画，所有元素同步变色，消除闪烁/延迟
+    root.classList.add("theme-anim");
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+    window.setTimeout(() => root.classList.remove("theme-anim"), 350);
   }, []);
 
   return (

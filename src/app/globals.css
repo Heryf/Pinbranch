@@ -5,24 +5,25 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 0 0% 100%;
+    /* 柔和护眼浅色调：暖米白替代纯白，降低刺眼感 */
+    --background: 42 30% 96%;
     --foreground: 220 15% 15%;
-    --card: 0 0% 100%;
+    --card: 40 33% 99%;
     --card-foreground: 220 15% 15%;
-    --popover: 0 0% 100%;
+    --popover: 40 33% 99%;
     --popover-foreground: 220 15% 15%;
     --primary: 155 65% 45%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 10% 96%;
+    --secondary: 40 15% 93%;
     --secondary-foreground: 220 15% 15%;
-    --muted: 220 10% 96%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 150 50% 94%;
+    --muted: 40 15% 93%;
+    --muted-foreground: 220 9% 42%;
+    --accent: 42 25% 90%;
     --accent-foreground: 220 15% 15%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 10% 90%;
-    --input: 220 10% 90%;
+    --border: 40 12% 87%;
+    --input: 40 12% 87%;
     --ring: 155 65% 45%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
@@ -30,13 +31,13 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 42 25% 94%;
     --sidebar-foreground: 220 15% 20%;
     --sidebar-primary: 155 65% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 10% 94%;
+    --sidebar-accent: 40 15% 90%;
     --sidebar-accent-foreground: 220 15% 15%;
-    --sidebar-border: 220 10% 90%;
+    --sidebar-border: 40 12% 87%;
     --sidebar-ring: 155 65% 45%;
   }
 
@@ -92,4 +93,18 @@
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;             /* Chrome, Safari and Opera */
+}
+
+/* 主题切换平滑过渡：仅在切换瞬间启用，避免常驻 transition 影响性能 */
+html.theme-anim,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition:
+    background-color 250ms ease,
+    border-color 250ms ease,
+    color 250ms ease,
+    fill 250ms ease,
+    stroke 250ms ease,
+    box-shadow 250ms ease !important;
 }
