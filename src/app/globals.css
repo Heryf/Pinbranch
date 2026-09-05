@@ -84,8 +84,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* 轻量过渡作为降级方案的平滑补偿；支持 View Transitions 的浏览器由合成器交叉淡入淡出接管 */
-    transition: background-color 200ms ease, color 200ms ease;
   }
 }
 .hide-scrollbar {

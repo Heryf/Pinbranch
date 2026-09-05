@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -10,6 +10,8 @@ interface ThemeContextType {
 }
 
 const STORAGE_KEY = "pintree-theme";
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const safeGetItem = (key: string): string | null => {
   try {
@@ -23,31 +25,20 @@ const safeSetItem = (key: string, value: string) => {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // ignore (e.g., private mode, quota exceeded)
+    // 隐私模式 / 夸克 WebView 等环境下忽略写入失败
   }
 };
-
-const safeRemoveItem = (key: string) => {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // ignore
-  }
-};
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  // 初始占位为 light；mount 时按 <html> 上已同步设置的 dark class 校正 React state，
+  // 避免初次渲染把 head 内联脚本设置的 class 又移除造成 FOUC。
+  const [theme, setTheme] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // 内联脚本已在 layout.tsx 中同步设置了 class，这里只需同步 state
-    const stored = safeGetItem(STORAGE_KEY) as Theme;
-    // 如果 localStorage 读取失败（隐私模式），保持默认 dark，不降级为系统偏好
-    const initialTheme: Theme = stored === "light" || stored === "dark" ? stored : "dark";
-    setTheme(initialTheme);
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "dark" : "light");
   }, []);
 
   useEffect(() => {
@@ -62,29 +53,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme, mounted]);
 
   const toggleTheme = useCallback(() => {
-    const root = document.documentElement;
-    // 以 DOM class 为唯一事实来源，点击瞬间同步算出目标主题，立即响应
-    const next: Theme = root.classList.contains("dark") ? "light" : "dark";
-    const apply = () => {
-      if (next === "dark") {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-      setTheme(next);
-    };
-    // 优先使用 View Transitions API：旧画面快照与新画面在合成器层交叉淡入淡出，
-    // 全页元素颜色同步平滑过渡，重绘不阻塞交互（Chrome/Edge/夸克均支持）
-    const doc = document as Document & {
-      startViewTransition?: (callback: () => void) => void;
-    };
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (typeof doc.startViewTransition === "function" && !reduceMotion) {
-      doc.startViewTransition(apply);
-    } else {
-      // 降级：直接同步切换 class，浏览器单次重绘完成，瞬时无延迟
-      apply();
-    }
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
   }, []);
 
   return (
