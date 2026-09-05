@@ -4,7 +4,7 @@
 
 **Version 1.0.0**
 
-[English](./README.md) | [简体中文](./README-zh.md)
+[English](./README.md) | [简体中文](./docs/README-zh.md)
 
 <h3>Pinbranch - Turn Your Browser Bookmarks into a Directory Website</h3>
 <p>A refined bookmark navigation site with file-explorer style browsing, built on Pintree.</p>
@@ -24,7 +24,7 @@
 | **Original License** | MIT License |
 | **Original Copyright** | Copyright (c) 2024 Pintree.io |
 | **This Project License** | MIT License (inherited) |
-| **Attribution Notice** | See [NOTICE.md](./NOTICE.md) |
+| **Attribution Notice** | See [NOTICE.md](./docs/NOTICE.md) |
 
 The original Pintree project is licensed under the MIT License, which permits modification
 and redistribution. Pinbranch complies with all MIT License terms, including preservation
@@ -60,7 +60,7 @@ Pinbranch introduces the following improvements over the original Pintree:
 - Prisma migration files for reliable Vercel deployment
 - Smart build script with automatic migration recovery
 
-> See [CHANGELOG.md](./CHANGELOG.md) for a complete list of modified files.
+> See [CHANGELOG.md](./docs/CHANGELOG.md) for a complete list of modified files.
 
 ---
 
@@ -130,7 +130,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 3. Configure environment variables (see `.env.example`)
 4. Deploy
 
-> See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+> See [DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment instructions.
 
 ---
 
@@ -165,11 +165,9 @@ pinbranch/
 │   └── lib/              # Utilities
 ├── prisma/               # Database schema & migrations
 ├── public/               # Static assets
-├── scripts/              # Build scripts
+├── scripts/              # Build & deploy scripts (vercel-build.sh, deploy.sh, deploy.ps1, ecosystem.config.cjs)
+├── docs/                 # Documentation (README-zh, CHANGELOG, NOTICE, DEPLOYMENT, etc.)
 ├── LICENSE               # MIT License (original copyright preserved)
-├── NOTICE.md             # Open source attribution notice
-├── CHANGELOG.md          # Modification records
-├── DEPLOYMENT.md         # Deployment guide
 └── vercel.json           # Vercel configuration
 ```
 

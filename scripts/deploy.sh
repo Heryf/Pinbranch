@@ -3,15 +3,15 @@
 # Pinbranch Git 一键部署脚本（Linux 服务器）
 #
 # 用法:
-#   ./deploy.sh [分支]                 # 默认 main
-#   BRANCH=main PORT=3000 ./deploy.sh
+#   ./scripts/deploy.sh [分支]                 # 默认 main
+#   BRANCH=main PORT=3000 ./scripts/deploy.sh
 #
 # 流程: 本地改动暂存 → git pull → npm install
 #       → prisma 迁移 + next build → 重启服务(pm2/systemd/nohup)
 #       → HTTP 健康检查 → 恢复暂存
 #
 # 前置要求:
-#   - 本脚本放在项目根目录（git 仓库内）执行
+#   - 在项目根目录执行（脚本会自动定位到自身所在目录）
 #   - 已安装 node ≥ 18 / npm
 #   - 可选: pm2 (推荐) 或 systemd 服务
 # ============================================================
@@ -67,7 +67,7 @@ npm run build
 restart_service() {
   if command -v pm2 >/dev/null 2>&1; then
     log "通过 pm2 重启 $APP_NAME"
-    pm2 startOrRestart "$APP_DIR/ecosystem.config.cjs" --env production
+    pm2 startOrRestart "$APP_DIR/scripts/ecosystem.config.cjs" --env production
     pm2 save >/dev/null 2>&1 || true
   elif systemctl list-units --type=service 2>/dev/null | grep -q "$APP_NAME"; then
     log "通过 systemd 重启 $APP_NAME"

@@ -84,12 +84,12 @@ and the respective `node_modules` packages.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file
 for details.
 
 The MIT License requires that the original copyright notice and permission notice
 be included in all copies or substantial portions of the software. The original
-Pintree copyright notice is preserved in the [LICENSE](./LICENSE) file as required.
+Pintree copyright notice is preserved in the [LICENSE](../LICENSE) file as required.
 
 ---
 

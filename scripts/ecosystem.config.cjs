@@ -1,11 +1,14 @@
 // Pinbranch pm2 进程守护配置
-// 首次使用: pm2 start ecosystem.config.cjs --env production && pm2 save
-// 之后部署脚本 deploy.sh 会自动 startOrRestart
+// 路径: scripts/ecosystem.config.cjs (项目根目录的子目录)
+// 首次使用: pm2 start scripts/ecosystem.config.cjs --env production && pm2 save
+// 之后部署脚本 scripts/deploy.sh 会自动 startOrRestart
+const path = require('path');
+
 module.exports = {
   apps: [
     {
       name: 'pinbranch',
-      cwd: __dirname,
+      cwd: path.resolve(__dirname, '..'),         // 项目根目录（脚本在 scripts/ 子目录）
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3000',
       instances: 1,

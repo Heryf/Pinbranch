@@ -1,7 +1,7 @@
 # ============================================================
 # Pinbranch Git 一键部署脚本 (Windows 本地 / 服务器)
 #
-# 用法: .\deploy.ps1 [分支]      # 默认 main
+# 用法: .\scripts\deploy.ps1 [分支]      # 默认 main
 #
 # 流程: 本地改动暂存 → git pull → npm install
 #       → prisma 迁移 + next build → 重启服务 → 健康检查
@@ -60,7 +60,7 @@ npm run build
 $UsingPm2 = Get-Command pm2 -ErrorAction SilentlyContinue
 if ($UsingPm2) {
     Log "通过 pm2 重启 pinbranch"
-    pm2 startOrRestart "$AppDir\ecosystem.config.cjs" --env production
+    pm2 startOrRestart "$AppDir\scripts\ecosystem.config.cjs" --env production
     pm2 save
 } else {
     Log "未检测到 pm2，终止旧进程并用 Start-Process 启动 (端口 $Port)"
