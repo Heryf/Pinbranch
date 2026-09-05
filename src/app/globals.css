@@ -84,6 +84,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 仅 body 单元素轻量过渡，其余元素同步瞬时切换（一次重绘，无闪烁无卡顿） */
+    transition: background-color 200ms ease, color 200ms ease;
   }
 }
 .hide-scrollbar {
@@ -93,18 +95,4 @@
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;             /* Chrome, Safari and Opera */
-}
-
-/* 主题切换平滑过渡：仅在切换瞬间启用，避免常驻 transition 影响性能 */
-html.theme-anim,
-html.theme-anim *,
-html.theme-anim *::before,
-html.theme-anim *::after {
-  transition:
-    background-color 250ms ease,
-    border-color 250ms ease,
-    color 250ms ease,
-    fill 250ms ease,
-    stroke 250ms ease,
-    box-shadow 250ms ease !important;
 }
